@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Carwash ServiProf - Autoservicio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+    @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    .toast-enter { animation: slideInRight 0.3s ease-out forwards; }
+    .toast-exit { animation: fadeOut 0.3s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between p-4 sm:p-6 overflow-x-hidden">
+  
+  <div id="toast-container" class="fixed top-4 right-4 z-[60] flex flex-col gap-2"></div>
+
+  <!-- ENCABEZADO -->
+  <header class="flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-slate-800/80 pb-4">
+    <div class="flex items-center gap-3">
+      <img src="/logo.png" alt="Carwash ServiProf" class="w-12 h-12 object-contain rounded-xl shadow-md border border-slate-800" onerror="this.style.display='none'">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">CARWASH SERVIPROF</h1>
+        <p class="text-xs text-slate-400 font-medium">Estación de Autoservicio 24/7</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="abrirModalAyuda()" class="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black px-4 py-2 rounded-2xl text-xs sm:text-sm shadow-lg flex items-center gap-2 transition border border-amber-300">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        ¿CÓMO USAR?
+      </button>
+      <div class="hidden md:flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold">
+        <span id="step-dot-1" class="w-3 h-3 rounded-full bg-cyan-400 transition-all duration-300"></span>
+        <span id="step-txt-1" class="text-cyan-400">1. Selección</span>
+        <span class="text-slate-600">→</span>
+        <span id="step-dot-2" class="w-3 h-3 rounded-full bg-slate-700 transition-all duration-300"></span>
+        <span id="step-txt-2" class="text-slate-500">2. Pago</span>
+        <span class="text-slate-600">→</span>
+        <span id="step-dot-3" class="w-3 h-3 rounded-full bg-slate-700 transition-all duration-300"></span>
+        <span id="step-txt-3" class="text-slate-500">3. Listo</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="banner-credito" class="hidden bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black p-4 rounded-3xl text-center shadow-2xl animate-bounce my-3 border border-emerald-300">
+    <div class="text-xl sm:text-2xl flex items-center justify-center gap-2"><span>💰</span> ¡PAGO REGISTRADO DE <span id="lbl-credito-monto" class="text-3xl underline">S/ 0.00</span>!</div>
+    <p class="text-xs sm:text-sm font-bold text-slate-900 mt-1">👉 Toque la máquina que desea encender a continuación.</p>
+  </div>
+
+  <!-- PASO 1: SELECCIÓN -->
+  <main id="paso-1" class="flex-1 flex flex-col justify-center my-4">
+    <h2 class="text-xl sm:text-2xl font-extrabold text-center text-slate-200 mb-6">¿Qué servicio desea utilizar?</h2>
+    <div id="contenedor-maquinas" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto w-full">
+      <p class="text-center text-slate-500 col-span-full py-8">Cargando servicios disponibles...</p>
+    </div>
+  </main>
+
+  <!-- PASO 2: QR Y PAGO -->
+  <main id="paso-2" class="hidden flex-1 flex-col items-center justify-center max-w-md mx-auto w-full my-auto">
+    <button onclick="cancelarSeleccion()" class="self-start text-slate-400 hover:text-white font-bold text-sm mb-4 flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl active:scale-95 transition">← Volver al Menú</button>
+    <div class="bg-slate-900/90 p-6 rounded-3xl w-full flex flex-col items-center border border-slate-800 shadow-2xl backdrop-blur">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Servicio Seleccionado</p>
+      <h2 id="lbl-maquina" class="text-xl font-black text-cyan-400 mt-1"></h2>
+      
+      <div class="flex items-center gap-6 my-6 bg-slate-950 p-3 rounded-2xl border border-slate-800 w-full justify-between">
+        <button onclick="cambiarMonto(-1)" class="w-14 h-14 bg-slate-800 hover:bg-slate-700 active:scale-90 rounded-xl text-3xl font-black text-slate-200 transition">-</button>
+        <div class="text-center">
+          <span id="lbl-monto" class="text-3xl sm:text-4xl font-black text-emerald-400">S/ 1.00</span>
+          <p id="lbl-tiempo" class="text-xs text-slate-400 font-bold mt-1">Tiempo: -- min</p>
+        </div>
+        <button onclick="cambiarMonto(1)" class="w-14 h-14 bg-slate-800 hover:bg-slate-700 active:scale-90 rounded-xl text-3xl font-black text-slate-200 transition">+</button>
+      </div>
+
+      <div class="bg-white p-3 rounded-2xl shadow-2xl my-1 border-4 border-cyan-500/30">
+        <img src="/yape-qr.png" alt="QR Yape" class="w-40 h-40 sm:w-48 sm:h-48 object-contain">
+      </div>
+      <div class="flex items-center gap-2 mt-4 text-amber-400 animate-pulse bg-amber-950/40 border border-amber-800/50 px-4 py-2 rounded-xl">
+        <span class="w-3 h-3 bg-amber-400 rounded-full"></span><p class="text-xs font-extrabold">Escanee y Yapee el monto exacto...</p>
+      </div>
+    </div>
+    
+    <!-- BOTÓN REPORTAR PAGO -->
+    <button onclick="abrirModalReporte()" class="mt-6 text-sm text-cyan-500 hover:text-cyan-400 underline font-bold transition flex items-center gap-2">
+      <span>⚠️</span> ¿Pagaste y no se activó? Reportar aquí
+    </button>
+  </main>
+
+  <!-- PASO 3: CONFIRMACIÓN EXITOSA -->
+  <main id="paso-3" class="hidden flex-1 flex-col items-center justify-center text-center p-4">
+    <div class="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-5xl mb-4 border border-emerald-500/30 animate-pulse">✓</div>
+    <h2 class="text-3xl sm:text-4xl font-black text-white mb-2">¡PAGO VERIFICADO!</h2>
+    <div id="lbl-exito" class="bg-slate-900 border border-slate-800 p-6 rounded-3xl mb-6 max-w-md w-full shadow-2xl"></div>
+    <button onclick="resetearKiosco()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 text-slate-950 font-black px-8 py-4 rounded-2xl text-lg shadow-xl transition">
+      Siguiente Cliente (<span id="count-reset">15</span>s)
+    </button>
+  </main>
+
+  <!-- MODAL: GUÍA DE USO -->
+  <div id="modal-ayuda" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+        <h3 class="text-xl font-black text-amber-400 flex items-center gap-2">💡 Guía Rápida de Uso</h3>
+        <button onclick="cerrarModalAyuda()" class="text-slate-400 hover:text-white font-bold text-2xl px-3 bg-slate-800 rounded-xl">✕</button>
+      </div>
+      <div class="space-y-6 my-6 text-slate-300 text-sm">
+        <div class="flex flex-col sm:flex-row gap-4 items-center bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+          <div class="text-4xl">👆</div>
+          <div><span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Paso 1</span><h4 class="font-bold text-white text-base">Seleccione el servicio</h4></div>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 items-center bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+          <div class="text-4xl">📱</div>
+          <div><span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Paso 2</span><h4 class="font-bold text-white text-base">Escanee el código QR y Yapee</h4></div>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 items-center bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+          <div class="text-4xl">💧</div>
+          <div><span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Paso 3</span><h4 class="font-bold text-white text-base">¡Servicio Activado!</h4></div>
+        </div>
+      </div>
+      <button onclick="cerrarModalAyuda()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 rounded-2xl w-full transition">¡Entendido, Empezar!</button>
+    </div>
+  </div>
+
+  <!-- MODAL: REPORTE DE PAGO FALLIDO (CLIENTE) -->
+  <div id="modal-reporte" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-blue-500/20 text-blue-500 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">⚠️</div>
+      <h3 class="text-lg font-black text-white mb-2">Reportar Pago</h3>
+      <p class="text-sm text-slate-400 mb-6">Si pagaste y la máquina no encendió, notifica al dueño de inmediato. También puedes hablar con el personal del local.</p>
+      
+      <div class="flex flex-col gap-3">
+        <!-- BOTÓN PARA ENVIAR ALARMA AL DASHBOARD -->
+        <button id="btn-enviar-alerta" onclick="enviarAlertaDashboard()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-4 rounded-xl text-sm shadow-lg transition flex justify-center items-center gap-2">
+          <span>🔔</span> NOTIFICAR AL DUEÑO
+        </button>
+
+        <button onclick="cerrarModalReporte()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-6 py-3 rounded-xl text-sm transition">Cerrar</button>
+        
+        <!-- BOTÓN SUTIL PARA ADMIN PRESENCIAL -->
+        <button onclick="abrirModalEmergencia()" class="text-slate-600 hover:text-slate-400 text-xs font-bold transition mt-2 flex items-center justify-center gap-1">
+          <span>⚙️</span> Acceso Personal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ACTIVACIÓN EMERGENCIA (ADMINISTRADOR) -->
+  <div id="modal-emergencia" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+    <div class="bg-rose-950/30 border border-rose-900/50 p-6 rounded-3xl max-w-sm w-full shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-black text-rose-500 flex items-center gap-2"><span>🚨</span> Activación Presencial</h3>
+        <button onclick="cerrarModalEmergencia()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
+      <form onsubmit="ejecutarEmergencia(event)" class="space-y-4" autocomplete="off">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Monto Pagado (S/)</label>
+          <input type="number" id="form-em-monto" required min="1" step="1" autocomplete="off" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-lg font-black text-rose-400 focus:outline-none focus:border-rose-500 transition text-center">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Clave de Administrador</label>
+          <input type="password" id="form-em-pass" required autocomplete="new-password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-rose-500 transition text-center" placeholder="••••••••">
+        </div>
+        <button type="submit" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-xl text-sm shadow-xl transition mt-2">Verificar y Encender</button>
+      </form>
+    </div>
+  </div>
+
+  <footer class="text-center text-xs text-slate-600 pt-3 border-t border-slate-900">Carwash ServiProf • Sistema Automatizado</footer>
+
+  <script>
+    let maquina = { id: null, nombre: '', seg: 180 };
+    let monto = 1;
+    let creditoPendiente = 0;
+    let evtSource = null;
+    let timerReset = null;
+    let contadorSeg = 15;
+    let maquinasEnUsoLocal = {};
+
+    function mostrarToast(mensaje, tipo = 'error') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      let colores = tipo === 'exito' ? 'bg-emerald-950 border-emerald-800 text-emerald-400' : 'bg-rose-950 border-rose-800 text-rose-400';
+      toast.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${colores}`;
+      toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-exit');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    const formatearTiempo = (seg) => {
+      const m = Math.floor(seg / 60).toString().padStart(2, '0');
+      const s = (seg % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    };
+
+    async function cargarMaquinasActivas() {
+      try {
+        const res = await fetch('/api/lavado/maquinas-activas/1');
+        const data = await res.json();
+        
+        if (data.status === 'OK' && data.data) {
+          const contenedor = document.getElementById('contenedor-maquinas');
+          contenedor.innerHTML = '';
+          
+          if (data.data.length === 0) {
+            contenedor.innerHTML = '<p class="text-center text-amber-400 font-bold col-span-full">No hay servicios disponibles.</p>';
+            return;
+          }
+
+          data.data.forEach(m => {
+            const min = (m.segundos_por_sol / 60).toFixed(1);
+            let colorClase = 'from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 border-blue-400/20';
+            
+            if (m.nombre.toLowerCase().includes('espuma')) {
+              colorClase = 'from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 border-purple-400/20';
+            } else if (m.nombre.toLowerCase().includes('aspiradora')) {
+              colorClase = 'from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 border-amber-400/20';
+            }
+
+            contenedor.innerHTML += `
+              <div class="relative w-full h-full" id="contenedor-maq-${m.id}">
+                <button onclick="intentarSeleccion(${m.id}, '${m.nombre}', ${m.segundos_por_sol})" class="w-full group bg-gradient-to-br ${colorClase} active:scale-95 p-6 rounded-3xl text-center shadow-xl border transition-all flex flex-col items-center justify-between gap-3 relative overflow-hidden">
+                  <div class="bg-slate-950/40 p-3 rounded-2xl text-white group-hover:scale-110 transition">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-black text-white">${m.nombre}</h3>
+                    <span class="inline-block bg-slate-950/80 text-cyan-300 text-xs font-bold px-3 py-1 rounded-full mt-2 border border-slate-700">S/ 1.00 = ${min} min</span>
+                  </div>
+                </button>
+                <div id="overlay-maq-${m.id}" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center border-2 border-rose-500 z-10 transition-all cursor-not-allowed">
+                  <span class="w-3 h-3 bg-rose-500 rounded-full animate-ping absolute top-4 right-4"></span>
+                  <span class="text-rose-500 font-black text-sm tracking-widest uppercase mb-1">EN USO</span>
+                  <span id="timer-maq-${m.id}" class="text-white font-mono text-4xl font-black drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]">00:00</span>
+                </div>
+              </div>
+            `;
+          });
+        }
+      } catch (error) {
+        console.error('Error al cargar máquinas:', error);
+      }
+    }
+
+    cargarMaquinasActivas();
+
+    function iniciarSSE() {
+      if (evtSource) {
+        evtSource.close();
+      }
+      evtSource = new EventSource("/api/lavado/eventos?t=" + Date.now());
+
+      evtSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        if (data.status === 'TICK' && data.tiempos) {
+          maquinasEnUsoLocal = data.tiempos;
+          
+          const pasoActual = [1, 2, 3].find(i => !document.getElementById(`paso-${i}`).classList.contains('hidden'));
+          
+          if (pasoActual === 2 && maquinasEnUsoLocal[maquina.id]) {
+             mostrarToast(`Alerta: ${maquina.nombre} acaba de ser encendida. Seleccione otra.`);
+             cancelarSeleccion();
+          }
+
+          document.querySelectorAll('[id^="overlay-maq-"]').forEach(overlay => {
+            const id = overlay.id.split('-')[2];
+            if (maquinasEnUsoLocal[id]) {
+              overlay.classList.remove('hidden'); 
+              document.getElementById(`timer-maq-${id}`).innerText = formatearTiempo(maquinasEnUsoLocal[id]);
+            } else { 
+              overlay.classList.add('hidden'); 
+            }
+          });
+        }
+
+        if (data.status === 'MAQUINAS_ACTUALIZADAS') {
+          cargarMaquinasActivas();
+        }
+
+        if (data.status === 'PAGO_CONFIRMADO') {
+          cerrarModalEmergencia(); 
+          cerrarModalReporte();
+          creditoPendiente = 0; 
+          document.getElementById('banner-credito').classList.add('hidden');
+          
+          const min = Math.floor(data.tiempo_seg / 60);
+          const seg = data.tiempo_seg % 60;
+          
+          document.getElementById('lbl-exito').innerHTML = `
+            <div class="text-slate-300 text-sm mb-1">Máquina: <span class="text-cyan-400 font-bold text-base">${data.maquina_nombre || 'Seleccionada'}</span></div>
+            <div class="text-slate-300 text-sm mb-3">Monto: <span class="text-emerald-400 font-bold text-2xl">S/ ${Number(data.monto_recibido).toFixed(2)}</span></div>
+            <div class="bg-emerald-950/60 border border-emerald-800 text-emerald-300 font-bold py-2 px-4 rounded-xl text-sm">¡Servicio Activado!</div>
+            <div class="text-xs text-slate-400 mt-3 font-semibold">Tiempo total asignado: ${min} min ${seg > 0 ? seg + ' seg' : ''}</div>
+          `;
+          
+          actualizarNavegacionPasos(3); 
+          mostrarPaso(3); 
+          iniciarConteoRegresivo();
+        }
+
+        if (data.status === 'CREDITO_PENDIENTE') {
+          creditoPendiente = data.monto_recibido;
+          document.getElementById('lbl-credito-monto').innerText = `S/ ${Number(creditoPendiente).toFixed(2)}`;
+          document.getElementById('banner-credito').classList.remove('hidden');
+          actualizarNavegacionPasos(1); 
+          mostrarPaso(1);
+        }
+      };
+    }
+    
+    iniciarSSE();
+
+    function actualizarNavegacionPasos(paso) {
+      for(let i = 1; i <= 3; i++) {
+        const dot = document.getElementById(`step-dot-${i}`);
+        const txt = document.getElementById(`step-txt-${i}`);
+        if (dot && txt) {
+          if (i <= paso) { 
+            dot.className = "w-3 h-3 rounded-full bg-cyan-400 transition-all duration-300"; 
+            txt.className = "text-cyan-400 font-bold"; 
+          } else { 
+            dot.className = "w-3 h-3 rounded-full bg-slate-700 transition-all duration-300"; 
+            txt.className = "text-slate-500 font-normal"; 
+          }
+        }
+      }
+    }
+
+    function mostrarPaso(p) {
+      [1, 2, 3].forEach(i => {
+        document.getElementById(`paso-${i}`).classList.add('hidden');
+      });
+      document.getElementById(`paso-${p}`).classList.remove('hidden');
+      if (p > 1) {
+        document.getElementById(`paso-${p}`).classList.add('flex');
+      }
+    }
+
+    function intentarSeleccion(id, nombre, seg) {
+      if (maquinasEnUsoLocal[id]) {
+        return mostrarToast(`"${nombre}" está en uso. Por favor, espere.`);
+      }
+      ejecutarSeleccion(id, nombre, seg);
+    }
+
+    function ejecutarSeleccion(id, nombre, seg) {
+      maquina = { id, nombre, seg };
+      
+      if (creditoPendiente > 0) {
+        fetch('/api/lavado/activar-con-credito', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ maquina_id: id, monto: creditoPendiente }) 
+        });
+        return;
+      }
+      
+      monto = 1;
+      fetch('/api/lavado/seleccionar-maquina', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ maquina_id: id }) 
+      });
+      
+      document.getElementById('lbl-maquina').innerText = nombre;
+      actualizarVista(); 
+      actualizarNavegacionPasos(2); 
+      mostrarPaso(2);
+    }
+
+    function cancelarSeleccion() {
+      fetch('/api/lavado/seleccionar-maquina', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ maquina_id: null }) 
+      });
+      actualizarNavegacionPasos(1); 
+      mostrarPaso(1);
+    }
+
+    function iniciarConteoRegresivo() {
+      if (timerReset) {
+        clearInterval(timerReset);
+      }
+      contadorSeg = 15; 
+      document.getElementById('count-reset').innerText = contadorSeg;
+      
+      timerReset = setInterval(() => {
+        contadorSeg--; 
+        document.getElementById('count-reset').innerText = contadorSeg;
+        if (contadorSeg <= 0) {
+          resetearKiosco();
+        }
+      }, 1000);
+    }
+
+    function resetearKiosco() {
+      if (timerReset) {
+        clearInterval(timerReset);
+      }
+      creditoPendiente = 0; 
+      document.getElementById('banner-credito').classList.add('hidden');
+      cancelarSeleccion();
+    }
+
+    function cambiarMonto(v) { 
+      monto = Math.max(1, monto + v); 
+      actualizarVista(); 
+    }
+
+    function actualizarVista() {
+      document.getElementById('lbl-monto').innerText = `S/ ${monto}.00`;
+      const tiempoSeg = monto * maquina.seg;
+      document.getElementById('lbl-tiempo').innerText = `Tiempo: ${(tiempoSeg / 60).toFixed(1)} min (${tiempoSeg} seg)`;
+    }
+
+    function abrirModalAyuda() { 
+      document.getElementById('modal-ayuda').classList.remove('hidden'); 
+    }
+    
+    function cerrarModalAyuda() { 
+      document.getElementById('modal-ayuda').classList.add('hidden'); 
+    }
+
+    function abrirModalReporte() { 
+      const btn = document.getElementById('btn-enviar-alerta');
+      btn.innerHTML = `<span>🔔</span> NOTIFICAR AL DUEÑO`;
+      btn.className = "bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-4 rounded-xl text-sm shadow-lg transition flex justify-center items-center gap-2";
+      btn.disabled = false;
+      document.getElementById('modal-reporte').classList.remove('hidden'); 
+    }
+
+    function cerrarModalReporte() { 
+      document.getElementById('modal-reporte').classList.add('hidden'); 
+    }
+
+    async function enviarAlertaDashboard() {
+      const btn = document.getElementById('btn-enviar-alerta');
+      btn.innerText = 'Enviando alerta...';
+      btn.disabled = true;
+
+      try {
+        await fetch('/api/lavado/reportar-falla', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ maquina_nombre: maquina.nombre })
+        });
+        
+        btn.innerHTML = `<span>✅</span> ¡DUEÑO NOTIFICADO!`;
+        btn.classList.replace('bg-amber-500', 'bg-emerald-500');
+        btn.classList.replace('hover:bg-amber-400', 'hover:bg-emerald-400');
+        mostrarToast('La alerta ha sonado en el panel de administración.', 'exito');
+      } catch(e) {
+        mostrarToast('Error al comunicar con el servidor.', 'error');
+        btn.innerText = 'Intentar de nuevo';
+        btn.disabled = false;
+      }
+    }
+
+    function abrirModalEmergencia() {
+      document.getElementById('modal-reporte').classList.add('hidden');
+      document.getElementById('form-em-monto').value = monto; 
+      document.getElementById('form-em-pass').value = ''; 
+      document.getElementById('modal-emergencia').classList.remove('hidden');
+      setTimeout(() => document.getElementById('form-em-pass').focus(), 100);
+    }
+
+    function cerrarModalEmergencia() { 
+      document.getElementById('modal-emergencia').classList.add('hidden'); 
+    }
+
+    async function ejecutarEmergencia(e) {
+      e.preventDefault();
+      const pass = document.getElementById('form-em-pass').value;
+      const montoPagado = document.getElementById('form-em-monto').value;
+      
+      try {
+        const res = await fetch('/api/admin/activacion-emergencia', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pass, maquina_id: maquina.id, monto: Number(montoPagado) })
+        });
+        
+        const data = await res.json();
+        
+        if (data.status !== 'OK') {
+          mostrarToast(data.error, 'error');
+        }
+      } catch (err) { 
+        mostrarToast('Error de conexión', 'error'); 
+      }
+    }
+  </script>
+</body>
+</html>

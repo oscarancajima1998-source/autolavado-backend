@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Administrativo - Carwash ServiProf</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    .toast-enter { animation: slideInRight 0.3s ease-out forwards; }
+    .toast-exit { animation: fadeOut 0.3s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <div id="toast-container" class="fixed top-4 right-4 z-[60] flex flex-col gap-2"></div>
+
+  <div id="vista-login" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center text-2xl font-black text-slate-950 shadow-lg mb-3">SP</div>
+        <h2 class="text-2xl font-black text-white">Carwash ServiProf</h2>
+        <p class="text-xs text-slate-400 mt-1">Acceso Administrativo al Sistema</p>
+      </div>
+      <div id="alert-login" class="hidden bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-bold p-3 rounded-xl mb-4 text-center"></div>
+      
+      <form onsubmit="ejecutarLogin(event)" class="space-y-4" autocomplete="off">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Correo Electrónico</label>
+          <input type="email" id="login-email" required autocomplete="off" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm focus:outline-none focus:border-cyan-500 transition" placeholder="Ingrese su correo">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Contraseña</label>
+          <input type="password" id="login-password" required autocomplete="new-password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm focus:outline-none focus:border-cyan-500 transition" placeholder="••••••••">
+        </div>
+        <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 text-slate-950 font-black py-3 rounded-xl text-sm shadow-xl transition mt-2">
+          Ingresar al Panel
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="vista-dashboard" class="hidden flex-1 flex flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full">
+    <header class="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl flex items-center justify-center font-black">SP</div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-black text-white">Panel de Administración</h1>
+          <p id="lbl-empresa-usuario" class="text-xs text-slate-400">Carwash ServiProf • Sesión Activa</p>
+        </div>
+      </div>
+      <button onclick="cerrarSesion()" class="bg-slate-900 hover:bg-slate-800 text-rose-400 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+        <span>🚪</span> Cerrar Sesión
+      </button>
+    </header>
+
+    <section class="mb-8">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+        <h2 class="text-lg font-black text-white flex items-center gap-2"><span class="w-3 h-3 bg-blue-500 rounded-full"></span> Reporte de Ventas</h2>
+        <div class="flex gap-2">
+          <input type="date" id="filtro-inicio" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-cyan-500">
+          <input type="date" id="filtro-fin" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-cyan-500">
+          <button onclick="cargarReporteAvanzado()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-sm transition shadow-lg">Filtrar</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-1 grid grid-cols-1 gap-4">
+          <div class="bg-emerald-950/30 border border-emerald-900/50 p-5 rounded-2xl">
+            <span class="text-xs text-emerald-500 font-bold uppercase tracking-wider">Recaudado (Rango)</span>
+            <h3 id="rep-ingresos" class="text-3xl font-black text-emerald-400 mt-1">S/ 0.00</h3>
+          </div>
+          <div class="bg-cyan-950/30 border border-cyan-900/50 p-5 rounded-2xl">
+            <span class="text-xs text-cyan-500 font-bold uppercase tracking-wider">Servicios Brindados</span>
+            <h3 id="rep-usos" class="text-3xl font-black text-cyan-400 mt-1">0</h3>
+          </div>
+        </div>
+        
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+          <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-3">Máquinas más usadas en el rango</span>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="text-slate-500 text-xs uppercase border-b border-slate-800">
+                  <th class="pb-2">Máquina</th>
+                  <th class="pb-2 text-center">Usos</th>
+                  <th class="pb-2 text-right">Monto Recaudado</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-ranking-body" class="text-slate-300 divide-y divide-slate-800/50">
+                <tr><td colspan="3" class="pt-3 text-center text-slate-600">Filtre fechas para ver resultados.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl mb-8">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h2 class="text-lg font-black text-white flex items-center gap-2"><span class="w-3 h-3 bg-emerald-400 rounded-full"></span> Control de Máquinas</h2>
+          <p class="text-xs text-slate-400">Equipos disponibles en el Kiosco. Visualice cronómetros en tiempo real.</p>
+        </div>
+        <button onclick="abrirModalNuevaMaquina()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow-lg transition">+ Agregar Máquina</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 text-xs uppercase font-bold">
+              <th class="pb-3">Nombre Máquina</th>
+              <th class="pb-3 text-center">Estado / Cronómetro</th>
+              <th class="pb-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-maquinas-body" class="divide-y divide-slate-800/60"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-6 shadow-xl mb-8">
+      <div class="mb-4">
+        <h2 class="text-lg font-black text-slate-300 flex items-center gap-2"><span class="w-3 h-3 bg-rose-500 rounded-full"></span> Máquinas Inhabilitadas</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-800/80 text-slate-500 text-xs uppercase font-bold">
+              <th class="pb-3">Nombre Máquina</th>
+              <th class="pb-3 text-center">Pin Hardware</th>
+              <th class="pb-3 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-maquinas-inactivas-body" class="divide-y divide-slate-800/40 text-slate-400"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ALARMA ROJA DE SOPORTE -->
+  <div id="modal-alerta-soporte" class="hidden fixed inset-0 bg-rose-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+    <div class="bg-rose-600 border-4 border-rose-400 p-8 rounded-3xl max-w-sm w-full shadow-[0_0_50px_rgba(225,29,72,0.8)] text-center animate-bounce">
+      <div class="text-6xl mb-4">🚨</div>
+      <h3 class="text-2xl font-black text-white mb-2">¡AYUDA REQUERIDA!</h3>
+      <p class="text-rose-100 mb-6 font-medium text-sm">Un cliente reportó un problema de pago en la máquina:<br><strong id="lbl-alerta-maquina" class="text-2xl text-white block mt-2"></strong></p>
+      <button onclick="cerrarAlertaSoporte()" class="bg-white text-rose-600 hover:bg-rose-100 font-black px-6 py-4 rounded-xl shadow-lg w-full transition text-lg">¡Entendido!</button>
+    </div>
+  </div>
+
+  <!-- MODALES DE GESTIÓN -->
+  <div id="modal-maquina" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-md w-full shadow-2xl">
+      <h3 id="lbl-modal-titulo" class="text-lg font-black text-white mb-4">Agregar Máquina</h3>
+      <form onsubmit="guardarMaquina(event)" class="space-y-4" autocomplete="off">
+        <input type="hidden" id="form-maquina-id">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre</label>
+          <input type="text" id="form-maquina-nombre" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Segundos por S/ 1.00</label>
+          <input type="number" id="form-maquina-seg" required min="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pin Hardware</label>
+          <input type="number" id="form-maquina-pin" required min="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500">
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="cerrarModalMaquina()" class="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold">Cancelar</button>
+          <button type="submit" class="bg-cyan-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-activacion" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center text-xl">⚡</div>
+        <div><h3 class="text-lg font-black text-amber-400">Activación Manual</h3><p class="text-xs text-slate-400">Encendido remoto</p></div>
+      </div>
+      <p class="text-sm text-slate-300 mb-4">¿Monto a activar para <strong id="lbl-activacion-nombre" class="text-white"></strong>?</p>
+      <form onsubmit="ejecutarActivacionManual(event)" class="space-y-4" autocomplete="off">
+        <input type="hidden" id="form-activacion-id">
+        <input type="number" id="form-activacion-monto" required min="1" step="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-lg font-black text-amber-400 text-center">
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="cerrarModalActivacion()" class="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold">Cancelar</button>
+          <button type="submit" class="bg-amber-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs">Activar Ahora</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-confirmacion" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center">
+      <div id="icono-confirmacion" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl mb-4"></div>
+      <h3 id="titulo-confirmacion" class="text-lg font-black text-white mb-2"></h3>
+      <p id="mensaje-confirmacion" class="text-sm text-slate-400 mb-6"></p>
+      <div class="flex justify-center gap-3">
+        <button onclick="cerrarModalConfirmacion()" class="bg-slate-800 text-slate-300 px-6 py-2 rounded-xl text-xs font-bold">Cancelar</button>
+        <button id="btn-accion-confirmacion" class="px-6 py-2 rounded-xl text-xs font-black"></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let tokenActual = localStorage.getItem('serviprof_token');
+    let tiempoInactividad = null;
+    let evtSource = null;
+    let maquinasRegistradas = [];
+    let accionConfirmacionPendiente = null;
+    const MINUTOS_LIMITE = 15;
+
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('filtro-inicio').value = hoy;
+    document.getElementById('filtro-fin').value = hoy;
+
+    function mostrarToast(mensaje, tipo = 'exito') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      
+      let clases = tipo === 'exito' 
+        ? 'bg-emerald-950 border-emerald-800 text-emerald-400' 
+        : 'bg-rose-950 border-rose-800 text-rose-400';
+      
+      let icono = tipo === 'exito' ? '✓' : '✕';
+      
+      t.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${clases}`;
+      t.innerHTML = `<div class="font-bold text-lg">${icono}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
+      c.appendChild(t); 
+      
+      setTimeout(() => {
+        t.classList.remove('toast-enter');
+        t.classList.add('toast-exit');
+        setTimeout(() => t.remove(), 300);
+      }, 3000);
+    }
+
+    const formatearTiempo = (seg) => { 
+      const m = Math.floor(seg/60).toString().padStart(2,'0');
+      const s = (seg%60).toString().padStart(2,'0'); 
+      return `${m}:${s}`; 
+    };
+
+    function resetearTemporizadorInactividad() {
+      clearTimeout(tiempoInactividad);
+      if (tokenActual) {
+        tiempoInactividad = setTimeout(cerrarSesionPorInactividad, MINUTOS_LIMITE * 60 * 1000);
+      }
+    }
+
+    function cerrarSesionPorInactividad() { 
+      cerrarSesion(); 
+      document.getElementById('alert-login').innerText = 'Sesión cerrada por inactividad.'; 
+      document.getElementById('alert-login').classList.remove('hidden'); 
+    }
+
+    window.onload = function() {
+      document.addEventListener('mousemove', resetearTemporizadorInactividad); 
+      document.addEventListener('keypress', resetearTemporizadorInactividad); 
+      document.addEventListener('click', resetearTemporizadorInactividad);
+      
+      if (tokenActual) { 
+        validarSesion(); 
+        iniciarSSE(); 
+        resetearTemporizadorInactividad(); 
+      } else { 
+        mostrarVistaLogin(); 
+      }
+    };
+
+    function mostrarVistaLogin() { 
+      document.getElementById('vista-login').classList.remove('hidden'); 
+      document.getElementById('vista-dashboard').classList.add('hidden'); 
+    }
+
+    function mostrarVistaDashboard() { 
+      document.getElementById('vista-login').classList.add('hidden'); 
+      document.getElementById('vista-dashboard').classList.remove('hidden'); 
+      cargarReporteAvanzado(); 
+      cargarMaquinas(); 
+      cargarMaquinasInactivas(); 
+    }
+
+    async function ejecutarLogin(e) {
+      e.preventDefault();
+      try {
+        const payload = {
+          email: document.getElementById('login-email').value, 
+          password: document.getElementById('login-password').value
+        };
+
+        const res = await fetch('/api/admin/login', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(payload) 
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'OK') {
+          tokenActual = data.data.token; 
+          localStorage.setItem('serviprof_token', tokenActual);
+          document.getElementById('lbl-empresa-usuario').innerText = `${data.data.usuario.empresa} • ${data.data.usuario.nombre}`;
+          document.getElementById('alert-login').classList.add('hidden'); 
+          document.getElementById('login-password').value = '';
+          
+          mostrarToast(`¡Bienvenido, ${data.data.usuario.nombre}!`); 
+          resetearTemporizadorInactividad(); 
+          mostrarVistaDashboard(); 
+          iniciarSSE();
+        } else { 
+          document.getElementById('alert-login').innerText = data.error; 
+          document.getElementById('alert-login').classList.remove('hidden'); 
+        }
+      } catch (err) { 
+        mostrarToast('Error de conexión', 'error'); 
+      }
+    }
+
+    async function validarSesion() {
+      try { 
+        const res = await fetch('/api/admin/perfil', { 
+          headers: { 'Authorization': `Bearer ${tokenActual}` } 
+        }); 
+        
+        const data = await res.json();
+        if (data.status === 'OK') { 
+          mostrarVistaDashboard(); 
+        } else { 
+          cerrarSesion(); 
+        } 
+      } catch (err) { 
+        cerrarSesion(); 
+      }
+    }
+
+    function cerrarSesion() { 
+      localStorage.removeItem('serviprof_token'); 
+      tokenActual = null; 
+      if (evtSource) evtSource.close(); 
+      clearTimeout(tiempoInactividad); 
+      mostrarVistaLogin(); 
+    }
+
+    function iniciarSSE() {
+      if (evtSource) {
+        evtSource.close();
+      }
+      evtSource = new EventSource("/api/lavado/eventos?t=" + Date.now());
+
+      evtSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        // ESCUCHAR ALARMA
+        if (data.status === 'ALERTA_SOPORTE') {
+          mostrarAlertaSoporte(data.maquina_nombre);
+        }
+
+        // ESCUCHAR CRONÓMETROS
+        if (data.status === 'TICK' && data.tiempos) {
+          maquinasRegistradas.forEach(m => {
+            const divLibre = document.getElementById(`maq-libre-${m.id}`);
+            const divUso = document.getElementById(`maq-uso-${m.id}`);
+            const timerSpan = document.getElementById(`dash-timer-${m.id}`);
+            const btnActivar = document.getElementById(`btn-activar-${m.id}`);
+            const btnDetener = document.getElementById(`btn-detener-${m.id}`);
+            
+            if (data.tiempos[m.id]) {
+              if (divLibre) divLibre.classList.add('hidden'); 
+              if (divUso) { 
+                divUso.classList.remove('hidden'); 
+                divUso.classList.add('flex'); 
+              }
+              if (timerSpan) timerSpan.innerText = formatearTiempo(data.tiempos[m.id]);
+              if (btnActivar) btnActivar.classList.add('hidden'); 
+              if (btnDetener) btnDetener.classList.remove('hidden');
+            } else {
+              if (divLibre) divLibre.classList.remove('hidden'); 
+              if (divUso) { 
+                divUso.classList.add('hidden'); 
+                divUso.classList.remove('flex'); 
+              }
+              if (btnActivar) btnActivar.classList.remove('hidden'); 
+              if (btnDetener) btnDetener.classList.add('hidden');
+            }
+          });
+        }
+      };
+    }
+
+    function mostrarAlertaSoporte(nombreMaquina) {
+      document.getElementById('lbl-alerta-maquina').innerText = nombreMaquina;
+      document.getElementById('modal-alerta-soporte').classList.remove('hidden');
+      
+      try { 
+        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'); 
+        audio.play().catch(()=>{}); 
+      } catch(e) {}
+    }
+
+    function cerrarAlertaSoporte() { 
+      document.getElementById('modal-alerta-soporte').classList.add('hidden'); 
+    }
+
+    async function cargarReporteAvanzado() {
+      const inicio = document.getElementById('filtro-inicio').value;
+      const fin = document.getElementById('filtro-fin').value;
+      
+      try {
+        const res = await fetch(`/api/admin/reportes/estacion/1?inicio=${inicio}&fin=${fin}`, { 
+          headers: { 'Authorization': `Bearer ${tokenActual}` } 
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'OK') {
+          document.getElementById('rep-ingresos').innerText = `S/ ${Number(data.data.totales.ingresos).toFixed(2)}`;
+          document.getElementById('rep-usos').innerText = data.data.totales.usos;
+          
+          const tbody = document.getElementById('tabla-ranking-body'); 
+          tbody.innerHTML = '';
+          
+          if (data.data.ranking_maquinas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="pt-3 text-center text-slate-600 text-xs">No hay ventas registradas en este periodo.</td></tr>';
+          } else {
+            data.data.ranking_maquinas.forEach(m => {
+              tbody.innerHTML += `
+                <tr class="hover:bg-slate-800/30 transition">
+                  <td class="py-2 font-bold text-white text-xs">${m.nombre}</td>
+                  <td class="py-2 text-center text-cyan-400 font-bold text-xs">${m.usos}</td>
+                  <td class="py-2 text-right text-emerald-400 font-bold text-xs">S/ ${Number(m.recaudado).toFixed(2)}</td>
+                </tr>
+              `;
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error al cargar reportes', err);
+      }
+    }
+
+    async function cargarMaquinas() {
+      try {
+        const res = await fetch('/api/admin/maquinas/estacion/1', { 
+          headers: { 'Authorization': `Bearer ${tokenActual}` } 
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'OK') {
+          maquinasRegistradas = data.data; 
+          const tbody = document.getElementById('tabla-maquinas-body'); 
+          tbody.innerHTML = '';
+          
+          if (data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-500">No hay máquinas registradas.</td></tr>';
+            return;
+          }
+          
+          data.data.forEach(m => {
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-900/50 border-b border-slate-800/50">
+                <td class="py-4">
+                  <div class="font-bold text-white text-sm">${m.nombre}</div>
+                  <div class="text-xs text-slate-500 mt-1">S/1 = ${m.segundos_por_sol}s • PIN: ${m.pin_hardware}</div>
+                </td>
+                <td class="py-4 text-center">
+                  <span id="maq-libre-${m.id}" class="bg-slate-800/50 text-slate-400 px-3 py-1 rounded-lg text-xs font-bold border border-slate-700">Libre</span>
+                  <div id="maq-uso-${m.id}" class="hidden items-center justify-center gap-2">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                    <span class="bg-rose-950 text-rose-400 border border-rose-800 px-3 py-1 rounded-lg text-xs font-bold font-mono shadow-[0_0_10px_rgba(244,63,94,0.3)]">
+                      Faltan: <span id="dash-timer-${m.id}">00:00</span>
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 text-right space-x-1 sm:space-x-2 flex justify-end">
+                  <button id="btn-activar-${m.id}" onclick="abrirModalActivacion(${m.id}, '${m.nombre}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-black shadow-lg transition inline-block">⚡ ACTIVAR</button>
+                  <button id="btn-detener-${m.id}" onclick="confirmarDetener(${m.id}, '${m.nombre}')" class="hidden bg-rose-600 hover:bg-rose-500 text-white px-2 sm:px-3 py-1.5 rounded-lg text-xs font-black shadow-lg transition inline-block">🛑 DETENER</button>
+                  <button onclick="editarTarifa(${m.id}, '${m.nombre}', ${m.segundos_por_sol}, ${m.pin_hardware})" class="bg-blue-950 text-blue-300 border border-blue-800 hover:bg-blue-900 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition">Editar</button>
+                  <button onclick="confirmarEliminar(${m.id}, '${m.nombre}')" class="bg-slate-800 text-rose-400 border border-slate-800 hover:border-rose-800 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition">Ocultar</button>
+                </td>
+              </tr>
+            `;
+          });
+        }
+      } catch (err) {
+        console.error('Error al cargar máquinas', err);
+      }
+    }
+
+    async function cargarMaquinasInactivas() {
+      try {
+        const res = await fetch('/api/admin/maquinas-inactivas/estacion/1', { 
+          headers: { 'Authorization': `Bearer ${tokenActual}` } 
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'OK') {
+          const tbody = document.getElementById('tabla-maquinas-inactivas-body'); 
+          tbody.innerHTML = '';
+          
+          if (data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-3 text-center text-slate-600 text-xs italic">No hay máquinas ocultas o en papelera.</td></tr>';
+            return;
+          }
+          
+          data.data.forEach(m => {
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-900/30 transition border-b border-slate-800/30">
+                <td class="py-3 font-medium text-slate-400 line-through text-sm">${m.nombre}</td>
+                <td class="py-3 text-center font-mono text-xs text-slate-600">PIN ${m.pin_hardware}</td>
+                <td class="py-3 text-right">
+                  <button onclick="confirmarRestaurar(${m.id}, '${m.nombre}')" class="bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 px-3 py-1.5 rounded-lg text-xs font-bold transition">⚡ Rehabilitar</button>
+                </td>
+              </tr>
+            `;
+          });
+        }
+      } catch (err) {
+        console.error('Error al cargar máquinas inactivas', err);
+      }
+    }
+
+    function mostrarConfirmacion(titulo, mensaje, iconoClass, btnColor, accion) {
+      document.getElementById('titulo-confirmacion').innerText = titulo; 
+      document.getElementById('mensaje-confirmacion').innerText = mensaje;
+      
+      const btnAccion = document.getElementById('btn-accion-confirmacion');
+      btnAccion.className = `font-black px-6 py-2 rounded-xl text-xs shadow-lg transition text-slate-950 ${btnColor}`;
+      btnAccion.innerText = 'Confirmar';
+      
+      document.getElementById('icono-confirmacion').className = `w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl mb-4 ${iconoClass}`;
+      
+      accionConfirmacionPendiente = accion; 
+      
+      const nuevoBtn = btnAccion.cloneNode(true);
+      btnAccion.parentNode.replaceChild(nuevoBtn, btnAccion); 
+      
+      nuevoBtn.addEventListener('click', async () => { 
+        if (accionConfirmacionPendiente) {
+          await accionConfirmacionPendiente(); 
+        }
+        cerrarModalConfirmacion(); 
+      });
+      
+      document.getElementById('modal-confirmacion').classList.remove('hidden');
+    }
+
+    function cerrarModalConfirmacion() { 
+      document.getElementById('modal-confirmacion').classList.add('hidden'); 
+      accionConfirmacionPendiente = null; 
+    }
+
+    function confirmarEliminar(id, nombre) { 
+      mostrarConfirmacion(
+        `Ocultar Máquina`, 
+        `¿Está seguro que desea ocultar "${nombre}" del kiosco?`, 
+        'bg-rose-500/20 text-rose-500', 
+        'bg-rose-500 hover:bg-rose-400', 
+        async () => { 
+          try {
+            const res = await fetch(`/api/admin/maquinas/${id}`, { 
+              method: 'DELETE', 
+              headers: { 'Authorization': `Bearer ${tokenActual}` } 
+            }); 
+            
+            const data = await res.json();
+            
+            if (data.status === 'OK') { 
+              mostrarToast('Máquina ocultada exitosamente.'); 
+              cargarMaquinas(); 
+              cargarMaquinasInactivas(); 
+            } 
+          } catch (e) {
+            mostrarToast('Error al ocultar la máquina.', 'error');
+          }
+        }
+      ); 
+    }
+
+    function confirmarRestaurar(id, nombre) { 
+      mostrarConfirmacion(
+        `Rehabilitar Máquina`, 
+        `¿Desea que la máquina "${nombre}" vuelva a ser visible en el Kiosco?`, 
+        'bg-emerald-500/20 text-emerald-500', 
+        'bg-emerald-500 hover:bg-emerald-400', 
+        async () => { 
+          try {
+            const res = await fetch(`/api/admin/maquinas/restaurar/${id}`, { 
+              method: 'PUT', 
+              headers: { 'Authorization': `Bearer ${tokenActual}` } 
+            }); 
+            
+            const data = await res.json();
+            
+            if (data.status === 'OK') { 
+              mostrarToast('Máquina restaurada con éxito.'); 
+              cargarMaquinas(); 
+              cargarMaquinasInactivas(); 
+            } 
+          } catch (e) {
+            mostrarToast('Error al restaurar la máquina.', 'error');
+          }
+        }
+      ); 
+    }
+
+    function confirmarDetener(id, nombre) { 
+      mostrarConfirmacion(
+        `Detener Máquina`, 
+        `¿Desea forzar el apagado de "${nombre}" y poner el cronómetro a cero?`, 
+        'bg-rose-600/20 text-rose-600', 
+        'bg-rose-600 hover:bg-rose-500 text-white', 
+        async () => { 
+          try {
+            const res = await fetch('/api/admin/maquinas/detener-manual', { 
+              method: 'POST', 
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${tokenActual}` 
+              }, 
+              body: JSON.stringify({ maquina_id: id }) 
+            }); 
+            
+            const data = await res.json();
+            
+            if (data.status === 'OK') {
+              mostrarToast('Máquina detenida forzosamente.'); 
+            }
+          } catch(e) {
+            mostrarToast('Error al intentar detener la máquina.', 'error');
+          }
+        }
+      ); 
+    }
+
+    function abrirModalNuevaMaquina() { 
+      document.getElementById('lbl-modal-titulo').innerText = 'Agregar Nueva Máquina'; 
+      document.getElementById('form-maquina-id').value = ''; 
+      document.getElementById('form-maquina-nombre').value = ''; 
+      document.getElementById('form-maquina-seg').value = '180'; 
+      document.getElementById('form-maquina-pin').value = ''; 
+      document.getElementById('modal-maquina').classList.remove('hidden'); 
+    }
+
+    function editarTarifa(id, nombre, seg, pin) { 
+      document.getElementById('lbl-modal-titulo').innerText = 'Editar Máquina / Tarifa'; 
+      document.getElementById('form-maquina-id').value = id; 
+      document.getElementById('form-maquina-nombre').value = nombre; 
+      document.getElementById('form-maquina-seg').value = seg; 
+      document.getElementById('form-maquina-pin').value = pin; 
+      document.getElementById('modal-maquina').classList.remove('hidden'); 
+    }
+
+    function cerrarModalMaquina() { 
+      document.getElementById('modal-maquina').classList.add('hidden'); 
+    }
+
+    async function guardarMaquina(e) { 
+      e.preventDefault(); 
+      const id = document.getElementById('form-maquina-id').value; 
+      
+      const payload = { 
+        estacion_id: 1, 
+        nombre: document.getElementById('form-maquina-nombre').value, 
+        segundos_por_sol: parseInt(document.getElementById('form-maquina-seg').value), 
+        pin_hardware: parseInt(document.getElementById('form-maquina-pin').value) 
+      };
+
+      try { 
+        const url = id ? `/api/admin/maquinas/${id}` : '/api/admin/maquinas';
+        const metodo = id ? 'PUT' : 'POST';
+
+        const res = await fetch(url, { 
+          method: metodo, 
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${tokenActual}` 
+          }, 
+          body: JSON.stringify(payload) 
+        }); 
+        
+        const data = await res.json();
+        
+        if (data.status === 'OK') { 
+          cerrarModalMaquina(); 
+          cargarMaquinas(); 
+          mostrarToast(id ? 'Cambios guardados con éxito.' : 'Nueva máquina creada con éxito.'); 
+        } 
+      } catch(err) {
+        mostrarToast('Error al comunicarse con el servidor.', 'error');
+      } 
+    }
+
+    function abrirModalActivacion(id, nombre) { 
+      document.getElementById('lbl-activacion-nombre').innerText = nombre; 
+      document.getElementById('form-activacion-id').value = id; 
+      document.getElementById('form-activacion-monto').value = ''; 
+      document.getElementById('modal-activacion').classList.remove('hidden'); 
+      
+      setTimeout(() => {
+        document.getElementById('form-activacion-monto').focus();
+      }, 100); 
+    }
+
+    function cerrarModalActivacion() { 
+      document.getElementById('modal-activacion').classList.add('hidden'); 
+    }
+
+    async function ejecutarActivacionManual(e) { 
+      e.preventDefault(); 
+      const id = document.getElementById('form-activacion-id').value;
+      const monto = document.getElementById('form-activacion-monto').value; 
+      
+      if (!monto || Number(monto) <= 0) {
+        return;
+      }
+
+      try { 
+        const res = await fetch('/api/admin/maquinas/activar-manual', { 
+          method: 'POST', 
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${tokenActual}` 
+          }, 
+          body: JSON.stringify({ maquina_id: id, monto: Number(monto) }) 
+        }); 
+        
+        const data = await res.json(); 
+        
+        if (data.status === 'OK') { 
+          cerrarModalActivacion(); 
+          mostrarToast('¡Máquina activada exitosamente!'); 
+          cargarReporteAvanzado(); 
+        } else { 
+          mostrarToast(data.error, 'error'); 
+        } 
+      } catch (err) {
+        mostrarToast('Error al intentar activar la máquina.', 'error');
+      } 
+    }
+  </script>
+</body>
+</html>

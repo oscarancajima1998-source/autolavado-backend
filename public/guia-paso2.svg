@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <rect width="200" height="200" rx="24" fill="#0f172a"/>
+  <!-- Código QR Simplificado -->
+  <rect x="35" y="50" width="70" height="70" rx="8" fill="#ffffff"/>
+  <rect x="45" y="60" width="20" height="20" fill="#0f172a"/>
+  <rect x="75" y="60" width="20" height="20" fill="#0f172a"/>
+  <rect x="45" y="90" width="20" height="20" fill="#0f172a"/>
+  <rect x="75" y="90" width="10" height="10" fill="#7c3aed"/>
+  <!-- Smartphone Escaneando -->
+  <rect x="110" y="70" width="55" height="100" rx="10" fill="#7c3aed" stroke="#ffffff" stroke-width="4"/>
+  <rect x="117" y="82" width="41" height="76" rx="4" fill="#0f172a"/>
+  <!-- Rayo / Flash de Lectura -->
+  <path d="M80 85 L135 100" stroke="#10b981" stroke-width="4" stroke-dasharray="3 3"/>
+  <!-- Moneda Yape -->
+  <circle cx="137.5" cy="120" r="12" fill="#10b981"/>
+  <text x="137.5" y="125" font-family="sans-serif" font-weight="900" font-size="14" fill="#ffffff" text-anchor="middle">S/</text>
+</svg>
