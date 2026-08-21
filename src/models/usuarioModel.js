@@ -15,7 +15,7 @@ class UsuarioModel {
       SELECT u.id, u.empresa_id, u.nombre, u.email, u.password_hash, u.rol, e.nombre as empresa_nombre
       FROM usuarios u
       JOIN empresas e ON u.empresa_id = e.id
-      WHERE u.email = $1 AND u.estado = 'A' AND e.estado = 'A'
+      WHERE u.email = $1 AND e.estado = 'A'
     `;
     const { rows } = await pool.query(query, [email]);
     return rows[0] || null;
