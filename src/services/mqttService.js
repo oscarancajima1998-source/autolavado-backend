@@ -1,4 +1,4 @@
-const mqtt = require('require');
+const mqtt = require('mqtt');
 require('dotenv').config();
 
 const mqttUrl = process.env.MQTT_HOST || 'mqtt://localhost:1883';
