@@ -4,6 +4,7 @@
  */
 
 const VentaModel = require('../models/ventaModel');
+const MaquinaModel = require('../models/maquinaModel');
 
 let clientesSSE = [];
 let maquinaSeleccionadaMemoria = null;
@@ -79,30 +80,58 @@ exports.activarConCredito = async (req, res) => {
 
 exports.recibirWebhookYape = async (req, res) => {
   try {
-    const { monto } = req.body;
+    let { monto, texto_notificacion } = req.body;
+
+    // Si MacroDroid envía el texto de la notificación, extraemos el monto automáticamente con Regex
+    if (!monto && texto_notificacion) {
+      const matchMonto = texto_notificacion.match(/S\/\s*(\d+(\.\d+)?)/i);
+      if (matchMonto) {
+        monto = parseFloat(matchMonto[1]);
+      }
+    }
+
+    if (!monto || isNaN(monto)) {
+      return res.status(400).json({ status: 'ERROR', mensaje: 'No se pudo extraer el monto de la notificación.' });
+    }
+
+    monto = Math.floor(monto); // Redondear a soles enteros
+
     if (!maquinaSeleccionadaMemoria) {
       exports.notificarClientes({ status: 'CREDITO_PENDIENTE', monto_recibido: monto });
       return res.json({ status: 'OK', mensaje: 'Crédito pendiente.' });
     }
+
     const maquina = await VentaModel.obtenerMaquinaPorId(maquinaSeleccionadaMemoria);
     if (!maquina) return res.status(400).json({ status: 'ERROR', mensaje: 'Máquina inválida.' });
 
     const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
-    await VentaModel.crearVenta({ estacion_id: maquina.estacion_id, maquina_id: maquina.id, monto, metodo_pago: 'YAPE', tiempo_otorgado_seg });
+    await VentaModel.crearVenta({ 
+      estacion_id: maquina.estacion_id, 
+      maquina_id: maquina.id, 
+      monto, 
+      metodo_pago: 'YAPE', 
+      tiempo_otorgado_seg 
+    });
     
     exports.iniciarTemporizador(maquina.id, tiempo_otorgado_seg); 
-    exports.notificarClientes({ status: 'PAGO_CONFIRMADO', maquina_nombre: maquina.nombre, monto_recibido: monto, tiempo_seg: tiempo_otorgado_seg });
+    exports.notificarClientes({ 
+      status: 'PAGO_CONFIRMADO', 
+      maquina_nombre: maquina.nombre, 
+      monto_recibido: monto, 
+      tiempo_seg: tiempo_otorgado_seg 
+    });
+    
     maquinaSeleccionadaMemoria = null;
     res.json({ status: 'OK', mensaje: 'Pago procesado correctamente.' });
-  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
+  } catch (error) { 
+    console.error('❌ Error en webhook Yape:', error);
+    res.status(500).json({ status: 'ERROR', error: error.message }); 
+  }
 };
 
-// ==========================================
-// NUEVO: ALARMA DE SOPORTE PARA EL DASHBOARD
-// ==========================================
+// --- ALARMA DE SOPORTE PARA EL DASHBOARD ---
 exports.reportarFalla = (req, res) => {
   const { maquina_nombre } = req.body;
-  // Esto envía el evento 'ALERTA_SOPORTE' a tu Dashboard para que suene la alarma
   exports.notificarClientes({ status: 'ALERTA_SOPORTE', maquina_nombre });
   res.json({ status: 'OK' });
 };
