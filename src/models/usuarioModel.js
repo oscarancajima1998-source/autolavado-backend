@@ -1,6 +1,6 @@
 /**
  * MODELO: UsuarioModel
- * Proyecto: Carwash ServiProf
+ * Proyecto: Carwash Servipro
  * Descripción: Métodos para la gestión de usuarios y autenticación.
  */
 
@@ -26,6 +26,7 @@ class UsuarioModel {
    */
   static async crear({ empresa_id, nombre, email, password_hash, rol = 'ADMIN' }) {
     const query = `
+      INSERT INTO empresas (id, nombre, estado) VALUES (1, 'Servipro Central', 'A') ON CONFLICT (id) DO NOTHING;
       INSERT INTO usuarios (empresa_id, nombre, email, password_hash, rol)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, empresa_id, nombre, email, rol, fecha_creacion

@@ -1,6 +1,6 @@
 /**
  * CONTROLADOR: AdminController
- * Proyecto: Carwash ServiProf
+ * Proyecto: Carwash Servipro
  */
 
 const bcrypt = require('bcrypt');
@@ -27,7 +27,10 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ usuario_id: usuario.id, empresa_id: usuario.empresa_id, rol: usuario.rol }, JWT_SECRET, { expiresIn: '2h' });
 
     return res.json({ status: 'OK', data: { token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa: usuario.empresa_nombre } } });
-  } catch (error) { return res.status(500).json({ status: 'ERROR', error: 'Error interno del servidor' }); }
+  } catch (error) { 
+    console.error('❌ ERROR CRÍTICO EN LOGIN:', error);
+    return res.status(500).json({ status: 'ERROR', error: 'Error interno del servidor: ' + error.message }); 
+  }
 };
 
 // --- GESTIÓN DE MÁQUINAS ---
@@ -109,8 +112,8 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
     const { password, maquina_id, monto } = req.body;
     if (!password || !maquina_id || !monto) return res.status(400).json({ status: 'ERROR', error: 'Faltan datos' });
 
-    // Validar contraseña con la del admin principal
-    const usuario = await UsuarioModel.buscarPorEmail('admin@serviprof.pe'); 
+    // Validar contraseña con la del admin principal corregido
+    const usuario = await UsuarioModel.buscarPorEmail('admin@servipro.pe'); 
     const passwordValido = await bcrypt.compare(password, usuario.password_hash).catch(() => false) || password === 'admin123';
 
     if (!passwordValido) return res.status(401).json({ status: 'ERROR', error: 'Contraseña de administrador incorrecta.' });
@@ -120,7 +123,6 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
 
     const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
 
-    // Registramos como método de pago "EMERGENCIA_KIOSCO"
     await VentaModel.crearVenta({
       estacion_id: maquina.estacion_id,
       maquina_id: maquina.id,
