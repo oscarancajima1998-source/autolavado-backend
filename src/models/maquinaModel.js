@@ -28,7 +28,6 @@ class MaquinaModel {
     return rows;
   }
 
-  // --- CORRECCIÓN AQUÍ: Agregamos 'estado' explícitamente ---
   static async crear({ estacion_id, nombre, segundos_por_sol, pin_hardware }) {
     const query = `
       INSERT INTO maquinas (estacion_id, nombre, segundos_por_sol, pin_hardware, estado)

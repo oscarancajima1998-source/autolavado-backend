@@ -28,8 +28,8 @@ exports.login = async (req, res) => {
 
     return res.json({ status: 'OK', data: { token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa: usuario.empresa_nombre } } });
   } catch (error) { 
-    console.error('❌ ERROR CRÍTICO EN LOGIN:', error);
-    return res.status(500).json({ status: 'ERROR', error: 'Error interno del servidor: ' + error.message }); 
+    console.error('❌ ERROR EN LOGIN:', error);
+    return res.status(500).json({ status: 'ERROR', error: 'Error interno del servidor' }); 
   }
 };
 
@@ -38,17 +38,28 @@ exports.listarMaquinas = async (req, res) => {
   try { res.json({ status: 'OK', data: await MaquinaModel.obtenerPorEstacion(req.params.estacionId || 1) }); }
   catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
+
 exports.listarMaquinasInactivas = async (req, res) => {
   try { res.json({ status: 'OK', data: await MaquinaModel.obtenerInactivasPorEstacion(req.params.estacionId || 1) }); }
   catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
+
 exports.crearMaquina = async (req, res) => {
   try {
-    const nueva = await MaquinaModel.crear({ estacion_id: req.body.estacion_id || 1, nombre: req.body.nombre, segundos_por_sol: req.body.segundos_por_sol, pin_hardware: req.body.pin_hardware });
+    const nueva = await MaquinaModel.crear({ 
+      estacion_id: req.body.estacion_id || 1, 
+      nombre: req.body.nombre, 
+      segundos_por_sol: req.body.segundos_por_sol, 
+      pin_hardware: req.body.pin_hardware 
+    });
     notificarClientes({ status: 'MAQUINAS_ACTUALIZADAS' });
     res.json({ status: 'OK', data: nueva });
-  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
+  } catch (error) { 
+    console.error('❌ ERROR AL CREAR MÁQUINA:', error);
+    res.status(500).json({ status: 'ERROR', error: error.message }); 
+  }
 };
+
 exports.actualizarMaquina = async (req, res) => {
   try {
     const actualizada = await MaquinaModel.actualizar(req.params.id, req.body);
@@ -57,6 +68,7 @@ exports.actualizarMaquina = async (req, res) => {
     res.json({ status: 'OK', data: actualizada });
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
+
 exports.eliminarMaquina = async (req, res) => {
   try {
     const resultado = await MaquinaModel.deshabilitar(req.params.id);
@@ -65,6 +77,7 @@ exports.eliminarMaquina = async (req, res) => {
     res.json({ status: 'OK', data: resultado });
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
+
 exports.restaurarMaquina = async (req, res) => {
   try {
     const resultado = await MaquinaModel.rehabilitar(req.params.id);
@@ -106,13 +119,11 @@ exports.detenerManual = async (req, res) => {
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
 
-// --- NUEVO: ACTIVACIÓN DE EMERGENCIA DESDE EL KIOSCO ---
 exports.activacionEmergenciaKiosco = async (req, res) => {
   try {
     const { password, maquina_id, monto } = req.body;
     if (!password || !maquina_id || !monto) return res.status(400).json({ status: 'ERROR', error: 'Faltan datos' });
 
-    // Validar contraseña con la del admin principal corregido
     const usuario = await UsuarioModel.buscarPorEmail('admin@servipro.pe'); 
     const passwordValido = await bcrypt.compare(password, usuario.password_hash).catch(() => false) || password === 'admin123';
 

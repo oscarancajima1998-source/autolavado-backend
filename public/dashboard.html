@@ -220,17 +220,10 @@
     function mostrarToast(mensaje, tipo = 'exito') {
       const c = document.getElementById('toast-container');
       const t = document.createElement('div');
-      
-      let clases = tipo === 'exito' 
-        ? 'bg-emerald-950 border-emerald-800 text-emerald-400' 
-        : 'bg-rose-950 border-rose-800 text-rose-400';
-      
-      let icono = tipo === 'exito' ? '✓' : '✕';
-      
+      let clases = tipo === 'exito' ? 'bg-emerald-950 border-emerald-800 text-emerald-400' : 'bg-rose-950 border-rose-800 text-rose-400';
       t.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${clases}`;
-      t.innerHTML = `<div class="font-bold text-lg">${icono}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
+      t.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       c.appendChild(t); 
-      
       setTimeout(() => {
         t.classList.remove('toast-enter');
         t.classList.add('toast-exit');
@@ -246,9 +239,7 @@
 
     function resetearTemporizadorInactividad() {
       clearTimeout(tiempoInactividad);
-      if (tokenActual) {
-        tiempoInactividad = setTimeout(cerrarSesionPorInactividad, MINUTOS_LIMITE * 60 * 1000);
-      }
+      if (tokenActual) tiempoInactividad = setTimeout(cerrarSesionPorInactividad, MINUTOS_LIMITE * 60 * 1000);
     }
 
     function cerrarSesionPorInactividad() { 
@@ -261,7 +252,6 @@
       document.addEventListener('mousemove', resetearTemporizadorInactividad); 
       document.addEventListener('keypress', resetearTemporizadorInactividad); 
       document.addEventListener('click', resetearTemporizadorInactividad);
-      
       if (tokenActual) { 
         validarSesion(); 
         iniciarSSE(); 
@@ -291,22 +281,18 @@
           email: document.getElementById('login-email').value, 
           password: document.getElementById('login-password').value
         };
-
         const res = await fetch('/api/admin/login', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify(payload) 
         });
-        
         const data = await res.json();
-        
         if (data.status === 'OK') {
           tokenActual = data.data.token; 
           localStorage.setItem('serviprof_token', tokenActual);
           document.getElementById('lbl-empresa-usuario').innerText = `${data.data.usuario.empresa} • ${data.data.usuario.nombre}`;
           document.getElementById('alert-login').classList.add('hidden'); 
           document.getElementById('login-password').value = '';
-          
           mostrarToast(`¡Bienvenido, ${data.data.usuario.nombre}!`); 
           resetearTemporizadorInactividad(); 
           mostrarVistaDashboard(); 
@@ -322,19 +308,11 @@
 
     async function validarSesion() {
       try { 
-        const res = await fetch('/api/admin/perfil', { 
-          headers: { 'Authorization': `Bearer ${tokenActual}` } 
-        }); 
-        
+        const res = await fetch('/api/admin/perfil', { headers: { 'Authorization': `Bearer ${tokenActual}` } }); 
         const data = await res.json();
-        if (data.status === 'OK') { 
-          mostrarVistaDashboard(); 
-        } else { 
-          cerrarSesion(); 
-        } 
-      } catch (err) { 
-        cerrarSesion(); 
-      }
+        if (data.status === 'OK') mostrarVistaDashboard(); 
+        else cerrarSesion(); 
+      } catch (err) { cerrarSesion(); }
     }
 
     function cerrarSesion() { 
@@ -346,20 +324,16 @@
     }
 
     function iniciarSSE() {
-      if (evtSource) {
-        evtSource.close();
-      }
+      if (evtSource) evtSource.close();
       evtSource = new EventSource("/api/lavado/eventos?t=" + Date.now());
 
       evtSource.onmessage = function(e) {
         const data = JSON.parse(e.data);
 
-        // ESCUCHAR ALARMA
         if (data.status === 'ALERTA_SOPORTE') {
           mostrarAlertaSoporte(data.maquina_nombre);
         }
 
-        // ESCUCHAR CRONÓMETROS
         if (data.status === 'TICK' && data.tiempos) {
           maquinasRegistradas.forEach(m => {
             const divLibre = document.getElementById(`maq-libre-${m.id}`);
@@ -370,19 +344,13 @@
             
             if (data.tiempos[m.id]) {
               if (divLibre) divLibre.classList.add('hidden'); 
-              if (divUso) { 
-                divUso.classList.remove('hidden'); 
-                divUso.classList.add('flex'); 
-              }
+              if (divUso) { divUso.classList.remove('hidden'); divUso.classList.add('flex'); }
               if (timerSpan) timerSpan.innerText = formatearTiempo(data.tiempos[m.id]);
               if (btnActivar) btnActivar.classList.add('hidden'); 
               if (btnDetener) btnDetener.classList.remove('hidden');
             } else {
               if (divLibre) divLibre.classList.remove('hidden'); 
-              if (divUso) { 
-                divUso.classList.add('hidden'); 
-                divUso.classList.remove('flex'); 
-              }
+              if (divUso) { divUso.classList.add('hidden'); divUso.classList.remove('flex'); }
               if (btnActivar) btnActivar.classList.remove('hidden'); 
               if (btnDetener) btnDetener.classList.add('hidden');
             }
@@ -394,35 +362,25 @@
     function mostrarAlertaSoporte(nombreMaquina) {
       document.getElementById('lbl-alerta-maquina').innerText = nombreMaquina;
       document.getElementById('modal-alerta-soporte').classList.remove('hidden');
-      
       try { 
         const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'); 
         audio.play().catch(()=>{}); 
       } catch(e) {}
     }
 
-    function cerrarAlertaSoporte() { 
-      document.getElementById('modal-alerta-soporte').classList.add('hidden'); 
-    }
+    function cerrarAlertaSoporte() { document.getElementById('modal-alerta-soporte').classList.add('hidden'); }
 
     async function cargarReporteAvanzado() {
       const inicio = document.getElementById('filtro-inicio').value;
       const fin = document.getElementById('filtro-fin').value;
-      
       try {
-        const res = await fetch(`/api/admin/reportes/estacion/1?inicio=${inicio}&fin=${fin}`, { 
-          headers: { 'Authorization': `Bearer ${tokenActual}` } 
-        });
-        
+        const res = await fetch(`/api/admin/reportes/estacion/1?inicio=${inicio}&fin=${fin}`, { headers: { 'Authorization': `Bearer ${tokenActual}` } });
         const data = await res.json();
-        
         if (data.status === 'OK') {
           document.getElementById('rep-ingresos').innerText = `S/ ${Number(data.data.totales.ingresos).toFixed(2)}`;
           document.getElementById('rep-usos').innerText = data.data.totales.usos;
-          
           const tbody = document.getElementById('tabla-ranking-body'); 
           tbody.innerHTML = '';
-          
           if (data.data.ranking_maquinas.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" class="pt-3 text-center text-slate-600 text-xs">No hay ventas registradas en este periodo.</td></tr>';
           } else {
@@ -437,29 +395,21 @@
             });
           }
         }
-      } catch (err) {
-        console.error('Error al cargar reportes', err);
-      }
+      } catch (err) { console.error('Error al cargar reportes', err); }
     }
 
     async function cargarMaquinas() {
       try {
-        const res = await fetch('/api/admin/maquinas/estacion/1', { 
-          headers: { 'Authorization': `Bearer ${tokenActual}` } 
-        });
-        
+        const res = await fetch('/api/admin/maquinas/estacion/1', { headers: { 'Authorization': `Bearer ${tokenActual}` } });
         const data = await res.json();
-        
         if (data.status === 'OK') {
           maquinasRegistradas = data.data; 
           const tbody = document.getElementById('tabla-maquinas-body'); 
           tbody.innerHTML = '';
-          
           if (data.data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-500">No hay máquinas registradas.</td></tr>';
             return;
           }
-          
           data.data.forEach(m => {
             tbody.innerHTML += `
               <tr class="hover:bg-slate-900/50 border-b border-slate-800/50">
@@ -486,28 +436,20 @@
             `;
           });
         }
-      } catch (err) {
-        console.error('Error al cargar máquinas', err);
-      }
+      } catch (err) { console.error('Error al cargar máquinas', err); }
     }
 
     async function cargarMaquinasInactivas() {
       try {
-        const res = await fetch('/api/admin/maquinas-inactivas/estacion/1', { 
-          headers: { 'Authorization': `Bearer ${tokenActual}` } 
-        });
-        
+        const res = await fetch('/api/admin/maquinas-inactivas/estacion/1', { headers: { 'Authorization': `Bearer ${tokenActual}` } });
         const data = await res.json();
-        
         if (data.status === 'OK') {
           const tbody = document.getElementById('tabla-maquinas-inactivas-body'); 
           tbody.innerHTML = '';
-          
           if (data.data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="py-3 text-center text-slate-600 text-xs italic">No hay máquinas ocultas o en papelera.</td></tr>';
             return;
           }
-          
           data.data.forEach(m => {
             tbody.innerHTML += `
               <tr class="hover:bg-slate-900/30 transition border-b border-slate-800/30">
@@ -520,33 +462,23 @@
             `;
           });
         }
-      } catch (err) {
-        console.error('Error al cargar máquinas inactivas', err);
-      }
+      } catch (err) { console.error('Error al cargar máquinas inactivas', err); }
     }
 
     function mostrarConfirmacion(titulo, mensaje, iconoClass, btnColor, accion) {
       document.getElementById('titulo-confirmacion').innerText = titulo; 
       document.getElementById('mensaje-confirmacion').innerText = mensaje;
-      
       const btnAccion = document.getElementById('btn-accion-confirmacion');
       btnAccion.className = `font-black px-6 py-2 rounded-xl text-xs shadow-lg transition text-slate-950 ${btnColor}`;
       btnAccion.innerText = 'Confirmar';
-      
       document.getElementById('icono-confirmacion').className = `w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl mb-4 ${iconoClass}`;
-      
       accionConfirmacionPendiente = accion; 
-      
       const nuevoBtn = btnAccion.cloneNode(true);
       btnAccion.parentNode.replaceChild(nuevoBtn, btnAccion); 
-      
       nuevoBtn.addEventListener('click', async () => { 
-        if (accionConfirmacionPendiente) {
-          await accionConfirmacionPendiente(); 
-        }
+        if (accionConfirmacionPendiente) await accionConfirmacionPendiente(); 
         cerrarModalConfirmacion(); 
       });
-      
       document.getElementById('modal-confirmacion').classList.remove('hidden');
     }
 
@@ -556,86 +488,37 @@
     }
 
     function confirmarEliminar(id, nombre) { 
-      mostrarConfirmacion(
-        `Ocultar Máquina`, 
-        `¿Está seguro que desea ocultar "${nombre}" del kiosco?`, 
-        'bg-rose-500/20 text-rose-500', 
-        'bg-rose-500 hover:bg-rose-400', 
-        async () => { 
-          try {
-            const res = await fetch(`/api/admin/maquinas/${id}`, { 
-              method: 'DELETE', 
-              headers: { 'Authorization': `Bearer ${tokenActual}` } 
-            }); 
-            
-            const data = await res.json();
-            
-            if (data.status === 'OK') { 
-              mostrarToast('Máquina ocultada exitosamente.'); 
-              cargarMaquinas(); 
-              cargarMaquinasInactivas(); 
-            } 
-          } catch (e) {
-            mostrarToast('Error al ocultar la máquina.', 'error');
-          }
-        }
-      ); 
+      mostrarConfirmacion(`Ocultar Máquina`, `¿Está seguro que desea ocultar "${nombre}" del kiosco?`, 'bg-rose-500/20 text-rose-500', 'bg-rose-500 hover:bg-rose-400', async () => { 
+        try {
+          const res = await fetch(`/api/admin/maquinas/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${tokenActual}` } }); 
+          const data = await res.json();
+          if (data.status === 'OK') { mostrarToast('Máquina ocultada exitosamente.'); cargarMaquinas(); cargarMaquinasInactivas(); } 
+        } catch (e) { mostrarToast('Error al ocultar la máquina.', 'error'); }
+      }); 
     }
 
     function confirmarRestaurar(id, nombre) { 
-      mostrarConfirmacion(
-        `Rehabilitar Máquina`, 
-        `¿Desea que la máquina "${nombre}" vuelva a ser visible en el Kiosco?`, 
-        'bg-emerald-500/20 text-emerald-500', 
-        'bg-emerald-500 hover:bg-emerald-400', 
-        async () => { 
-          try {
-            const res = await fetch(`/api/admin/maquinas/restaurar/${id}`, { 
-              method: 'PUT', 
-              headers: { 'Authorization': `Bearer ${tokenActual}` } 
-            }); 
-            
-            const data = await res.json();
-            
-            if (data.status === 'OK') { 
-              mostrarToast('Máquina restaurada con éxito.'); 
-              cargarMaquinas(); 
-              cargarMaquinasInactivas(); 
-            } 
-          } catch (e) {
-            mostrarToast('Error al restaurar la máquina.', 'error');
-          }
-        }
-      ); 
+      mostrarConfirmacion(`Rehabilitar Máquina`, `¿Desea que la máquina "${nombre}" vuelva a ser visible en el Kiosco?`, 'bg-emerald-500/20 text-emerald-500', 'bg-emerald-500 hover:bg-emerald-400', async () => { 
+        try {
+          const res = await fetch(`/api/admin/maquinas/restaurar/${id}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${tokenActual}` } }); 
+          const data = await res.json();
+          if (data.status === 'OK') { mostrarToast('Máquina restaurada con éxito.'); cargarMaquinas(); cargarMaquinasInactivas(); } 
+        } catch (e) { mostrarToast('Error al restaurar la máquina.', 'error'); }
+      }); 
     }
 
     function confirmarDetener(id, nombre) { 
-      mostrarConfirmacion(
-        `Detener Máquina`, 
-        `¿Desea forzar el apagado de "${nombre}" y poner el cronómetro a cero?`, 
-        'bg-rose-600/20 text-rose-600', 
-        'bg-rose-600 hover:bg-rose-500 text-white', 
-        async () => { 
-          try {
-            const res = await fetch('/api/admin/maquinas/detener-manual', { 
-              method: 'POST', 
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${tokenActual}` 
-              }, 
-              body: JSON.stringify({ maquina_id: id }) 
-            }); 
-            
-            const data = await res.json();
-            
-            if (data.status === 'OK') {
-              mostrarToast('Máquina detenida forzosamente.'); 
-            }
-          } catch(e) {
-            mostrarToast('Error al intentar detener la máquina.', 'error');
-          }
-        }
-      ); 
+      mostrarConfirmacion(`Detener Máquina`, `¿Desea forzar el apagado de "${nombre}" y poner el cronómetro a cero?`, 'bg-rose-600/20 text-rose-600', 'bg-rose-600 hover:bg-rose-500 text-white', async () => { 
+        try {
+          const res = await fetch('/api/admin/maquinas/detener-manual', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenActual}` }, 
+            body: JSON.stringify({ maquina_id: id }) 
+          }); 
+          const data = await res.json();
+          if (data.status === 'OK') mostrarToast('Máquina detenida forzosamente.'); 
+        } catch(e) { mostrarToast('Error al intentar detener la máquina.', 'error'); }
+      }); 
     }
 
     function abrirModalNuevaMaquina() { 
@@ -656,44 +539,34 @@
       document.getElementById('modal-maquina').classList.remove('hidden'); 
     }
 
-    function cerrarModalMaquina() { 
-      document.getElementById('modal-maquina').classList.add('hidden'); 
-    }
+    function cerrarModalMaquina() { document.getElementById('modal-maquina').classList.add('hidden'); }
 
     async function guardarMaquina(e) { 
       e.preventDefault(); 
       const id = document.getElementById('form-maquina-id').value; 
-      
       const payload = { 
         estacion_id: 1, 
         nombre: document.getElementById('form-maquina-nombre').value, 
         segundos_por_sol: parseInt(document.getElementById('form-maquina-seg').value), 
         pin_hardware: parseInt(document.getElementById('form-maquina-pin').value) 
       };
-
       try { 
         const url = id ? `/api/admin/maquinas/${id}` : '/api/admin/maquinas';
         const metodo = id ? 'PUT' : 'POST';
-
         const res = await fetch(url, { 
           method: metodo, 
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${tokenActual}` 
-          }, 
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenActual}` }, 
           body: JSON.stringify(payload) 
         }); 
-        
         const data = await res.json();
-        
         if (data.status === 'OK') { 
           cerrarModalMaquina(); 
           cargarMaquinas(); 
           mostrarToast(id ? 'Cambios guardados con éxito.' : 'Nueva máquina creada con éxito.'); 
-        } 
-      } catch(err) {
-        mostrarToast('Error al comunicarse con el servidor.', 'error');
-      } 
+        } else {
+          mostrarToast(data.error || 'Error al guardar la máquina.', 'error');
+        }
+      } catch(err) { mostrarToast('Error al comunicarse con el servidor.', 'error'); } 
     }
 
     function abrirModalActivacion(id, nombre) { 
@@ -701,37 +574,24 @@
       document.getElementById('form-activacion-id').value = id; 
       document.getElementById('form-activacion-monto').value = ''; 
       document.getElementById('modal-activacion').classList.remove('hidden'); 
-      
-      setTimeout(() => {
-        document.getElementById('form-activacion-monto').focus();
-      }, 100); 
+      setTimeout(() => document.getElementById('form-activacion-monto').focus(), 100); 
     }
 
-    function cerrarModalActivacion() { 
-      document.getElementById('modal-activacion').classList.add('hidden'); 
-    }
+    function cerrarModalActivacion() { document.getElementById('modal-activacion').classList.add('hidden'); }
 
     async function ejecutarActivacionManual(e) { 
       e.preventDefault(); 
       const id = document.getElementById('form-activacion-id').value;
       const monto = document.getElementById('form-activacion-monto').value; 
-      
-      if (!monto || Number(monto) <= 0) {
-        return;
-      }
+      if (!monto || Number(monto) <= 0) return;
 
       try { 
         const res = await fetch('/api/admin/maquinas/activar-manual', { 
           method: 'POST', 
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${tokenActual}` 
-          }, 
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenActual}` }, 
           body: JSON.stringify({ maquina_id: id, monto: Number(monto) }) 
         }); 
-        
         const data = await res.json(); 
-        
         if (data.status === 'OK') { 
           cerrarModalActivacion(); 
           mostrarToast('¡Máquina activada exitosamente!'); 
@@ -739,9 +599,7 @@
         } else { 
           mostrarToast(data.error, 'error'); 
         } 
-      } catch (err) {
-        mostrarToast('Error al intentar activar la máquina.', 'error');
-      } 
+      } catch (err) { mostrarToast('Error al intentar activar la máquina.', 'error'); } 
     }
   </script>
 </body>

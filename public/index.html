@@ -81,7 +81,6 @@
       </div>
     </div>
     
-    <!-- BOTÓN REPORTAR PAGO -->
     <button onclick="abrirModalReporte()" class="mt-6 text-sm text-cyan-500 hover:text-cyan-400 underline font-bold transition flex items-center gap-2">
       <span>⚠️</span> ¿Pagaste y no se activó? Reportar aquí
     </button>
@@ -122,22 +121,18 @@
     </div>
   </div>
 
-  <!-- MODAL: REPORTE DE PAGO FALLIDO (CLIENTE) -->
+  <!-- MODAL: REPORTE DE PAGO FALLIDO -->
   <div id="modal-reporte" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[70] flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center">
       <div class="w-16 h-16 bg-blue-500/20 text-blue-500 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">⚠️</div>
       <h3 class="text-lg font-black text-white mb-2">Reportar Pago</h3>
-      <p class="text-sm text-slate-400 mb-6">Si pagaste y la máquina no encendió, notifica al dueño de inmediato. También puedes hablar con el personal del local.</p>
+      <p class="text-sm text-slate-400 mb-6">Si pagaste y la máquina no encendió, notifica al dueño de inmediato.</p>
       
       <div class="flex flex-col gap-3">
-        <!-- BOTÓN PARA ENVIAR ALARMA AL DASHBOARD -->
         <button id="btn-enviar-alerta" onclick="enviarAlertaDashboard()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-4 rounded-xl text-sm shadow-lg transition flex justify-center items-center gap-2">
           <span>🔔</span> NOTIFICAR AL DUEÑO
         </button>
-
         <button onclick="cerrarModalReporte()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-6 py-3 rounded-xl text-sm transition">Cerrar</button>
-        
-        <!-- BOTÓN SUTIL PARA ADMIN PRESENCIAL -->
         <button onclick="abrirModalEmergencia()" class="text-slate-600 hover:text-slate-400 text-xs font-bold transition mt-2 flex items-center justify-center gap-1">
           <span>⚙️</span> Acceso Personal
         </button>
@@ -145,7 +140,7 @@
     </div>
   </div>
 
-  <!-- MODAL: ACTIVACIÓN EMERGENCIA (ADMINISTRADOR) -->
+  <!-- MODAL: ACTIVACIÓN EMERGENCIA -->
   <div id="modal-emergencia" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[80] flex items-center justify-center p-4">
     <div class="bg-rose-950/30 border border-rose-900/50 p-6 rounded-3xl max-w-sm w-full shadow-2xl">
       <div class="flex items-center justify-between mb-6">
@@ -184,7 +179,6 @@
       toast.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${colores}`;
       toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       container.appendChild(toast);
-      
       setTimeout(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-exit');
@@ -250,9 +244,7 @@
     cargarMaquinasActivas();
 
     function iniciarSSE() {
-      if (evtSource) {
-        evtSource.close();
-      }
+      if (evtSource) evtSource.close();
       evtSource = new EventSource("/api/lavado/eventos?t=" + Date.now());
 
       evtSource.onmessage = function(e) {
@@ -260,7 +252,6 @@
 
         if (data.status === 'TICK' && data.tiempos) {
           maquinasEnUsoLocal = data.tiempos;
-          
           const pasoActual = [1, 2, 3].find(i => !document.getElementById(`paso-${i}`).classList.contains('hidden'));
           
           if (pasoActual === 2 && maquinasEnUsoLocal[maquina.id]) {
@@ -333,25 +324,18 @@
     }
 
     function mostrarPaso(p) {
-      [1, 2, 3].forEach(i => {
-        document.getElementById(`paso-${i}`).classList.add('hidden');
-      });
+      [1, 2, 3].forEach(i => document.getElementById(`paso-${i}`).classList.add('hidden'));
       document.getElementById(`paso-${p}`).classList.remove('hidden');
-      if (p > 1) {
-        document.getElementById(`paso-${p}`).classList.add('flex');
-      }
+      if (p > 1) document.getElementById(`paso-${p}`).classList.add('flex');
     }
 
     function intentarSeleccion(id, nombre, seg) {
-      if (maquinasEnUsoLocal[id]) {
-        return mostrarToast(`"${nombre}" está en uso. Por favor, espere.`);
-      }
+      if (maquinasEnUsoLocal[id]) return mostrarToast(`"${nombre}" está en uso. Por favor, espere.`);
       ejecutarSeleccion(id, nombre, seg);
     }
 
     function ejecutarSeleccion(id, nombre, seg) {
       maquina = { id, nombre, seg };
-      
       if (creditoPendiente > 0) {
         fetch('/api/lavado/activar-con-credito', { 
           method: 'POST', 
@@ -360,14 +344,12 @@
         });
         return;
       }
-      
       monto = 1;
       fetch('/api/lavado/seleccionar-maquina', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ maquina_id: id }) 
       });
-      
       document.getElementById('lbl-maquina').innerText = nombre;
       actualizarVista(); 
       actualizarNavegacionPasos(2); 
@@ -385,25 +367,18 @@
     }
 
     function iniciarConteoRegresivo() {
-      if (timerReset) {
-        clearInterval(timerReset);
-      }
+      if (timerReset) clearInterval(timerReset);
       contadorSeg = 15; 
       document.getElementById('count-reset').innerText = contadorSeg;
-      
       timerReset = setInterval(() => {
         contadorSeg--; 
         document.getElementById('count-reset').innerText = contadorSeg;
-        if (contadorSeg <= 0) {
-          resetearKiosco();
-        }
+        if (contadorSeg <= 0) resetearKiosco();
       }, 1000);
     }
 
     function resetearKiosco() {
-      if (timerReset) {
-        clearInterval(timerReset);
-      }
+      if (timerReset) clearInterval(timerReset);
       creditoPendiente = 0; 
       document.getElementById('banner-credito').classList.add('hidden');
       cancelarSeleccion();
@@ -420,14 +395,8 @@
       document.getElementById('lbl-tiempo').innerText = `Tiempo: ${(tiempoSeg / 60).toFixed(1)} min (${tiempoSeg} seg)`;
     }
 
-    function abrirModalAyuda() { 
-      document.getElementById('modal-ayuda').classList.remove('hidden'); 
-    }
-    
-    function cerrarModalAyuda() { 
-      document.getElementById('modal-ayuda').classList.add('hidden'); 
-    }
-
+    function abrirModalAyuda() { document.getElementById('modal-ayuda').classList.remove('hidden'); }
+    function cerrarModalAyuda() { document.getElementById('modal-ayuda').classList.add('hidden'); }
     function abrirModalReporte() { 
       const btn = document.getElementById('btn-enviar-alerta');
       btn.innerHTML = `<span>🔔</span> NOTIFICAR AL DUEÑO`;
@@ -435,26 +404,20 @@
       btn.disabled = false;
       document.getElementById('modal-reporte').classList.remove('hidden'); 
     }
-
-    function cerrarModalReporte() { 
-      document.getElementById('modal-reporte').classList.add('hidden'); 
-    }
+    function cerrarModalReporte() { document.getElementById('modal-reporte').classList.add('hidden'); }
 
     async function enviarAlertaDashboard() {
       const btn = document.getElementById('btn-enviar-alerta');
       btn.innerText = 'Enviando alerta...';
       btn.disabled = true;
-
       try {
         await fetch('/api/lavado/reportar-falla', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ maquina_nombre: maquina.nombre })
         });
-        
         btn.innerHTML = `<span>✅</span> ¡DUEÑO NOTIFICADO!`;
         btn.classList.replace('bg-amber-500', 'bg-emerald-500');
-        btn.classList.replace('hover:bg-amber-400', 'hover:bg-emerald-400');
         mostrarToast('La alerta ha sonado en el panel de administración.', 'exito');
       } catch(e) {
         mostrarToast('Error al comunicar con el servidor.', 'error');
@@ -471,27 +434,20 @@
       setTimeout(() => document.getElementById('form-em-pass').focus(), 100);
     }
 
-    function cerrarModalEmergencia() { 
-      document.getElementById('modal-emergencia').classList.add('hidden'); 
-    }
+    function cerrarModalEmergencia() { document.getElementById('modal-emergencia').classList.add('hidden'); }
 
     async function ejecutarEmergencia(e) {
       e.preventDefault();
       const pass = document.getElementById('form-em-pass').value;
       const montoPagado = document.getElementById('form-em-monto').value;
-      
       try {
         const res = await fetch('/api/admin/activacion-emergencia', {
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password: pass, maquina_id: maquina.id, monto: Number(montoPagado) })
         });
-        
         const data = await res.json();
-        
-        if (data.status !== 'OK') {
-          mostrarToast(data.error, 'error');
-        }
+        if (data.status !== 'OK') mostrarToast(data.error, 'error');
       } catch (err) { 
         mostrarToast('Error de conexión', 'error'); 
       }
