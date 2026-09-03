@@ -164,8 +164,15 @@
           <input type="number" id="form-maquina-seg" required min="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500">
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pin Hardware</label>
-          <input type="number" id="form-maquina-pin" required min="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500">
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pin Hardware (Salida PCB)</label>
+          <select id="form-maquina-pin" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500">
+            <option value="" disabled selected>Seleccione un Pin / Salida</option>
+            <option value="16">Pin 16 - Bornera OUT 1 (Agua)</option>
+            <option value="17">Pin 17 - Bornera OUT 2 (Champú)</option>
+            <option value="19">Pin 19 - Bornera OUT 3 (Aspiradora)</option>
+            <option value="21">Pin 21 - Bornera OUT 4 (Silicona)</option>
+            <option value="22">Pin 22 - Bornera OUT 5 (Reserva)</option>
+          </select>
         </div>
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" onclick="cerrarModalMaquina()" class="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold">Cancelar</button>
@@ -535,7 +542,7 @@
       document.getElementById('form-maquina-id').value = id; 
       document.getElementById('form-maquina-nombre').value = nombre; 
       document.getElementById('form-maquina-seg').value = seg; 
-      document.getElementById('form-maquina-pin').value = pin; 
+      document.getElementById('form-maquina-pin').value = String(pin); 
       document.getElementById('modal-maquina').classList.remove('hidden'); 
     }
 
