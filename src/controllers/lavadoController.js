@@ -72,6 +72,11 @@ exports.activarConCredito = async (req, res) => {
     const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
     await VentaModel.crearVenta({ estacion_id: maquina.estacion_id, maquina_id: maquina.id, monto, metodo_pago: 'YAPE', tiempo_otorgado_seg });
     
+    // ORDEN MQTT PARA ENCENDER EL ESP32
+    const mqttClient = require('../services/mqttService');
+    const payload = JSON.stringify({ maquina_id: maquina.id, nombre_maquina: maquina.nombre, tiempo_seg: tiempo_otorgado_seg, pin_hardware: maquina.pin_hardware });
+    mqttClient.publish('autolavado/estacion/1/activar', payload);
+
     exports.iniciarTemporizador(maquina.id, tiempo_otorgado_seg); 
     exports.notificarClientes({ status: 'PAGO_CONFIRMADO', maquina_nombre: maquina.nombre, monto_recibido: monto, tiempo_seg: tiempo_otorgado_seg });
     res.json({ status: 'OK' });
@@ -82,19 +87,16 @@ exports.recibirWebhookYape = async (req, res) => {
   try {
     let { monto, texto_notificacion } = req.body;
 
-    // Si MacroDroid envía el texto de la notificación, extraemos el monto automáticamente con Regex
     if (!monto && texto_notificacion) {
       const matchMonto = texto_notificacion.match(/S\/\s*(\d+(\.\d+)?)/i);
-      if (matchMonto) {
-        monto = parseFloat(matchMonto[1]);
-      }
+      if (matchMonto) { monto = parseFloat(matchMonto[1]); }
     }
 
     if (!monto || isNaN(monto)) {
       return res.status(400).json({ status: 'ERROR', mensaje: 'No se pudo extraer el monto de la notificación.' });
     }
 
-    monto = Math.floor(monto); // Redondear a soles enteros
+    monto = Math.floor(monto);
 
     if (!maquinaSeleccionadaMemoria) {
       exports.notificarClientes({ status: 'CREDITO_PENDIENTE', monto_recibido: monto });
@@ -105,21 +107,15 @@ exports.recibirWebhookYape = async (req, res) => {
     if (!maquina) return res.status(400).json({ status: 'ERROR', mensaje: 'Máquina inválida.' });
 
     const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
-    await VentaModel.crearVenta({ 
-      estacion_id: maquina.estacion_id, 
-      maquina_id: maquina.id, 
-      monto, 
-      metodo_pago: 'YAPE', 
-      tiempo_otorgado_seg 
-    });
+    await VentaModel.crearVenta({ estacion_id: maquina.estacion_id, maquina_id: maquina.id, monto, metodo_pago: 'YAPE', tiempo_otorgado_seg });
     
+    // ORDEN MQTT PARA ENCENDER EL ESP32
+    const mqttClient = require('../services/mqttService');
+    const payload = JSON.stringify({ maquina_id: maquina.id, nombre_maquina: maquina.nombre, tiempo_seg: tiempo_otorgado_seg, pin_hardware: maquina.pin_hardware });
+    mqttClient.publish('autolavado/estacion/1/activar', payload);
+
     exports.iniciarTemporizador(maquina.id, tiempo_otorgado_seg); 
-    exports.notificarClientes({ 
-      status: 'PAGO_CONFIRMADO', 
-      maquina_nombre: maquina.nombre, 
-      monto_recibido: monto, 
-      tiempo_seg: tiempo_otorgado_seg 
-    });
+    exports.notificarClientes({ status: 'PAGO_CONFIRMADO', maquina_nombre: maquina.nombre, monto_recibido: monto, tiempo_seg: tiempo_otorgado_seg });
     
     maquinaSeleccionadaMemoria = null;
     res.json({ status: 'OK', mensaje: 'Pago procesado correctamente.' });
@@ -129,9 +125,36 @@ exports.recibirWebhookYape = async (req, res) => {
   }
 };
 
-// --- ALARMA DE SOPORTE PARA EL DASHBOARD ---
 exports.reportarFalla = (req, res) => {
   const { maquina_nombre } = req.body;
   exports.notificarClientes({ status: 'ALERTA_SOPORTE', maquina_nombre });
   res.json({ status: 'OK' });
+};
+
+// --- PROCESAMIENTO DE DINERO FÍSICO DESDE EL ESP32 ---
+exports.procesarPagoFisicoInterno = async (monto) => {
+  try {
+    if (!maquinaSeleccionadaMemoria) {
+      exports.notificarClientes({ status: 'CREDITO_PENDIENTE', monto_recibido: monto });
+      return;
+    }
+
+    const maquina = await VentaModel.obtenerMaquinaPorId(maquinaSeleccionadaMemoria);
+    if (!maquina) return;
+
+    const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
+    await VentaModel.crearVenta({ estacion_id: maquina.estacion_id, maquina_id: maquina.id, monto, metodo_pago: 'EFECTIVO', tiempo_otorgado_seg });
+
+    // ORDEN MQTT PARA ENCENDER EL ESP32
+    const mqttClient = require('../services/mqttService');
+    const payload = JSON.stringify({ maquina_id: maquina.id, nombre_maquina: maquina.nombre, tiempo_seg: tiempo_otorgado_seg, pin_hardware: maquina.pin_hardware });
+    mqttClient.publish('autolavado/estacion/1/activar', payload);
+
+    exports.iniciarTemporizador(maquina.id, tiempo_otorgado_seg);
+    exports.notificarClientes({ status: 'PAGO_CONFIRMADO', maquina_nombre: maquina.nombre, monto_recibido: monto, tiempo_seg: tiempo_otorgado_seg });
+
+    maquinaSeleccionadaMemoria = null;
+  } catch (error) {
+    console.error('❌ Error en pago físico interno:', error);
+  }
 };
