@@ -77,7 +77,7 @@
         <img src="/yape-qr.png" alt="QR Yape" class="w-40 h-40 sm:w-48 sm:h-48 object-contain">
       </div>
       <div class="flex items-center gap-2 mt-4 text-amber-400 animate-pulse bg-amber-950/40 border border-amber-800/50 px-4 py-2 rounded-xl">
-        <span class="w-3 h-3 bg-amber-400 rounded-full"></span><p class="text-xs font-extrabold">Escanee y Yapee el monto exacto...</p>
+        <span class="w-3 h-3 bg-amber-400 rounded-full"></span><p class="text-xs font-extrabold">Escanee y Yapee o inserte monedas...</p>
       </div>
     </div>
     
@@ -89,7 +89,7 @@
   <!-- PASO 3: CONFIRMACIÓN EXITOSA -->
   <main id="paso-3" class="hidden flex-1 flex-col items-center justify-center text-center p-4">
     <div class="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-5xl mb-4 border border-emerald-500/30 animate-pulse">✓</div>
-    <h2 class="text-3xl sm:text-4xl font-black text-white mb-2">¡PAGO VERIFICADO!</h2>
+    <h2 id="titulo-exito" class="text-3xl sm:text-4xl font-black text-white mb-2">¡PAGO VERIFICADO!</h2>
     <div id="lbl-exito" class="bg-slate-900 border border-slate-800 p-6 rounded-3xl mb-6 max-w-md w-full shadow-2xl"></div>
     <button onclick="resetearKiosco()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 text-slate-950 font-black px-8 py-4 rounded-2xl text-lg shadow-xl transition">
       Siguiente Cliente (<span id="count-reset">15</span>s)
@@ -175,15 +175,16 @@
     function mostrarToast(mensaje, tipo = 'error') {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
-      let colores = tipo === 'exito' ? 'bg-emerald-950 border-emerald-800 text-emerald-400' : 'bg-rose-950 border-rose-800 text-rose-400';
+      let colores = tipo === 'exito' ? 'bg-emerald-950 border-emerald-800 text-emerald-400' : 
+                   tipo === 'alerta' ? 'bg-amber-950 border-amber-800 text-amber-400' : 'bg-rose-950 border-rose-800 text-rose-400';
       toast.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${colores}`;
-      toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
+      toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : tipo === 'alerta' ? '⚠️' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       container.appendChild(toast);
       setTimeout(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-exit');
         setTimeout(() => toast.remove(), 300);
-      }, 3000);
+      }, 4000);
     }
 
     const formatearTiempo = (seg) => {
@@ -227,10 +228,11 @@
                     <span class="inline-block bg-slate-950/80 text-cyan-300 text-xs font-bold px-3 py-1 rounded-full mt-2 border border-slate-700">S/ 1.00 = ${min} min</span>
                   </div>
                 </button>
-                <div id="overlay-maq-${m.id}" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center border-2 border-rose-500 z-10 transition-all cursor-not-allowed">
+                <div id="overlay-maq-${m.id}" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center border-2 border-rose-500 z-10 transition-all pointer-events-none">
                   <span class="w-3 h-3 bg-rose-500 rounded-full animate-ping absolute top-4 right-4"></span>
                   <span class="text-rose-500 font-black text-sm tracking-widest uppercase mb-1">EN USO</span>
                   <span id="timer-maq-${m.id}" class="text-white font-mono text-4xl font-black drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]">00:00</span>
+                  <span class="text-xs text-rose-300 mt-2 font-bold">(Toque para añadir tiempo)</span>
                 </div>
               </div>
             `;
@@ -252,13 +254,7 @@
 
         if (data.status === 'TICK' && data.tiempos) {
           maquinasEnUsoLocal = data.tiempos;
-          const pasoActual = [1, 2, 3].find(i => !document.getElementById(`paso-${i}`).classList.contains('hidden'));
           
-          if (pasoActual === 2 && maquinasEnUsoLocal[maquina.id]) {
-             mostrarToast(`Alerta: ${maquina.nombre} acaba de ser encendida. Seleccione otra.`);
-             cancelarSeleccion();
-          }
-
           document.querySelectorAll('[id^="overlay-maq-"]').forEach(overlay => {
             const id = overlay.id.split('-')[2];
             if (maquinasEnUsoLocal[id]) {
@@ -283,11 +279,14 @@
           const min = Math.floor(data.tiempo_seg / 60);
           const seg = data.tiempo_seg % 60;
           
+          let tituloElegido = data.es_extension ? '¡TIEMPO AÑADIDO!' : '¡PAGO VERIFICADO!';
+          document.getElementById('titulo-exito').innerText = tituloElegido;
+
           document.getElementById('lbl-exito').innerHTML = `
             <div class="text-slate-300 text-sm mb-1">Máquina: <span class="text-cyan-400 font-bold text-base">${data.maquina_nombre || 'Seleccionada'}</span></div>
-            <div class="text-slate-300 text-sm mb-3">Monto: <span class="text-emerald-400 font-bold text-2xl">S/ ${Number(data.monto_recibido).toFixed(2)}</span></div>
-            <div class="bg-emerald-950/60 border border-emerald-800 text-emerald-300 font-bold py-2 px-4 rounded-xl text-sm">¡Servicio Activado!</div>
-            <div class="text-xs text-slate-400 mt-3 font-semibold">Tiempo total asignado: ${min} min ${seg > 0 ? seg + ' seg' : ''}</div>
+            <div class="text-slate-300 text-sm mb-3">Monto Verificado: <span class="text-emerald-400 font-bold text-2xl">S/ ${Number(data.monto_recibido).toFixed(2)}</span></div>
+            <div class="bg-emerald-950/60 border border-emerald-800 text-emerald-300 font-bold py-2 px-4 rounded-xl text-sm">¡Cronómetro Actualizado!</div>
+            <div class="text-xs text-slate-400 mt-3 font-semibold">Tiempo total de la máquina: ${min} min ${seg > 0 ? seg + ' seg' : ''}</div>
           `;
           
           actualizarNavegacionPasos(3); 
@@ -296,11 +295,16 @@
         }
 
         if (data.status === 'CREDITO_PENDIENTE') {
-          creditoPendiente = data.monto_recibido;
+          creditoPendiente = data.saldo_actual;
           document.getElementById('lbl-credito-monto').innerText = `S/ ${Number(creditoPendiente).toFixed(2)}`;
           document.getElementById('banner-credito').classList.remove('hidden');
           actualizarNavegacionPasos(1); 
           mostrarPaso(1);
+        }
+
+        if (data.status === 'PAGO_INCOMPLETO') {
+          creditoPendiente = data.saldo_actual;
+          mostrarToast(`⚠️ Incompleto: Ingresó S/ ${data.saldo_actual}.00. Aún faltan S/ ${data.monto_faltante}.00 para arrancar.`, 'alerta');
         }
       };
     }
@@ -330,26 +334,22 @@
     }
 
     function intentarSeleccion(id, nombre, seg) {
-      if (maquinasEnUsoLocal[id]) return mostrarToast(`"${nombre}" está en uso. Por favor, espere.`);
+      if (maquinasEnUsoLocal[id]) {
+        mostrarToast(`"${nombre}" está activa. Puede ingresar dinero extra para extender el tiempo.`, 'exito');
+      }
       ejecutarSeleccion(id, nombre, seg);
     }
 
     function ejecutarSeleccion(id, nombre, seg) {
       maquina = { id, nombre, seg };
-      if (creditoPendiente > 0) {
-        fetch('/api/lavado/activar-con-credito', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ maquina_id: id, monto: creditoPendiente }) 
-        });
-        return;
-      }
       monto = 1;
+      
       fetch('/api/lavado/seleccionar-maquina', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ maquina_id: id }) 
+        body: JSON.stringify({ maquina_id: id, monto: monto }) 
       });
+
       document.getElementById('lbl-maquina').innerText = nombre;
       actualizarVista(); 
       actualizarNavegacionPasos(2); 
@@ -387,6 +387,14 @@
     function cambiarMonto(v) { 
       monto = Math.max(1, monto + v); 
       actualizarVista(); 
+      
+      if (maquina.id) {
+        fetch('/api/lavado/seleccionar-maquina', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ maquina_id: maquina.id, monto: monto }) 
+        });
+      }
     }
 
     function actualizarVista() {
