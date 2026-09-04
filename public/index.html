@@ -211,11 +211,13 @@
       toast.className = `toast-enter flex items-center gap-3 border p-4 rounded-2xl shadow-2xl backdrop-blur-md ${colores}`;
       toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : tipo === 'alerta' ? '⚠️' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       container.appendChild(toast);
+      
+      // Se aumentó el tiempo a 6 segundos (6000ms) para que el cliente pueda leer mensajes largos.
       setTimeout(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-exit');
         setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      }, 6000); 
     }
 
     const formatearTiempo = (seg) => {
@@ -440,7 +442,7 @@
       document.getElementById('lbl-tiempo').innerText = `Tiempo: ${(tiempoSeg / 60).toFixed(1)} min (${tiempoSeg} seg)`;
     }
 
-    // --- NUEVAS FUNCIONES DE CLIENTE PREPAGO ---
+    // --- FUNCIONES DE CLIENTE PREPAGO ---
     function abrirModalDni() {
       document.getElementById('lbl-dni-monto').innerText = monto.toFixed(2);
       document.getElementById('form-dni').value = '';
@@ -449,25 +451,40 @@
     }
     
     function cerrarModalDni() { 
+      document.getElementById('form-dni').value = ''; // BUENA PRÁCTICA: Limpiar el input por seguridad
       document.getElementById('modal-dni').classList.add('hidden'); 
     }
 
     async function ejecutarPagoDNI(e) {
       e.preventDefault();
-      const dni = document.getElementById('form-dni').value;
+      const dniInput = document.getElementById('form-dni');
+      const dni = dniInput.value;
+      
       try {
         const res = await fetch('/api/lavado/pagar-saldo-cliente', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ dni }) 
         });
+
+        // La magia de la corrección: Siempre convertimos la respuesta a JSON aunque sea un error HTTP 400
         const data = await res.json();
-        if (data.status === 'OK') {
-          mostrarToast(`¡Gracias ${data.cliente}! Saldo restante: S/ ${data.nuevo_saldo.toFixed(2)}`, 'exito');
-        } else {
-          mostrarToast(data.error, 'error');
+        
+        // Si no es status 200 (res.ok) o si el json mismo indica 'ERROR'
+        if (!res.ok || data.status === 'ERROR') {
+          dniInput.value = ''; // Limpiamos el DNI para que no se quede escrito
+          mostrarToast(data.error || 'Error al procesar el pago.', 'error');
+          return; // Detenemos la función para evitar mensajes de éxito
         }
-      } catch (err) { mostrarToast('Error de conexión con el servidor', 'error'); }
+
+        // Si llega a esta línea, el pago fue un éxito rotundo
+        dniInput.value = '';
+        mostrarToast(`¡Gracias ${data.cliente}! Saldo restante: S/ ${data.nuevo_saldo.toFixed(2)}`, 'exito');
+        
+      } catch (err) { 
+        console.error("Error en pago DNI:", err);
+        mostrarToast('Error de conexión con el servidor', 'error'); 
+      }
     }
 
     async function forzarArranqueParcial() {

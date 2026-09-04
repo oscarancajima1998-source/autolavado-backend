@@ -229,11 +229,18 @@ exports.pagarConSaldoCliente = async (req, res) => {
     if (!cliente) return res.status(404).json({ status: 'ERROR', error: 'DNI no registrado o inactivo' });
 
     let saldoActual = parseFloat(cliente.saldo);
-    if (saldoActual <= 0) return res.status(400).json({ status: 'ERROR', error: 'Su saldo está en S/ 0.00. Recargue en recepción.' });
+    
+    // VALIDACIÓN ESPECÍFICA SOLICITADA PARA SALDO 0 O NEGATIVO
+    if (saldoActual <= 0) {
+      return res.status(400).json({ 
+        status: 'ERROR', 
+        error: 'TU SALDO ES INSUFICIENTE. CONTÁCTATE CON EL ADMINISTRADOR Y RECARGA.' 
+      });
+    }
 
     let montoAcobrar = sesionKiosco.monto_objetivo;
     
-    // Si el saldo es menor a lo que cuesta, arranca con lo que tenga.
+    // Si el saldo es menor a lo que cuesta el servicio, se le consume todo su saldo para un arranque parcial.
     if (saldoActual < montoAcobrar) {
       montoAcobrar = saldoActual;
     }
@@ -243,7 +250,7 @@ exports.pagarConSaldoCliente = async (req, res) => {
     
     await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
     
-    // NUEVO: Notificar al Dashboard que el saldo ha cambiado
+    // Notificación en tiempo real para el Dashboard administrativo
     exports.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
 
     res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: saldoActual - montoAcobrar });
