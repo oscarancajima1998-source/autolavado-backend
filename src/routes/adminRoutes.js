@@ -29,6 +29,7 @@ router.get('/clientes', verificarToken, adminController.listarClientes);
 router.get('/clientes-inactivos', verificarToken, adminController.listarClientesInactivos);
 router.post('/clientes', verificarToken, adminController.crearCliente);
 router.post('/clientes/recargar', verificarToken, adminController.recargarSaldoCliente);
+router.post('/clientes/descontar', verificarToken, adminController.descontarSaldoCliente); // NUEVO
 router.put('/clientes/restaurar/:id', verificarToken, adminController.restaurarCliente);
 router.delete('/clientes/:id', verificarToken, adminController.eliminarCliente);
 

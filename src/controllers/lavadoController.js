@@ -243,6 +243,9 @@ exports.pagarConSaldoCliente = async (req, res) => {
     
     await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
     
+    // NUEVO: Notificar al Dashboard que el saldo ha cambiado
+    exports.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
+
     res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: saldoActual - montoAcobrar });
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };

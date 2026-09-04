@@ -30,6 +30,12 @@ class ClienteModel {
     return rows[0];
   }
 
+  // NUEVO: Permite buscar al cliente por ID para validar descuentos
+  static async buscarPorId(id) {
+    const { rows } = await pool.query(`SELECT * FROM clientes WHERE id = $1`, [id]);
+    return rows[0];
+  }
+
   static async actualizarSaldo(id, monto, operacion = 'RESTA') {
     const signo = operacion === 'SUMA' ? '+' : '-';
     const query = `UPDATE clientes SET saldo = saldo ${signo} $1 WHERE id = $2 RETURNING saldo`;

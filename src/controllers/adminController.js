@@ -269,7 +269,6 @@ exports.listarClientes = async (req, res) => {
   }
 };
 
-// NUEVO: Faltaba listar inactivos
 exports.listarClientesInactivos = async (req, res) => {
   try {
     const clientes = await ClienteModel.listarInactivos();
@@ -288,7 +287,6 @@ exports.crearCliente = async (req, res) => {
       return res.status(400).json({ status: 'ERROR', error: 'DNI, Nombres y Apellidos son obligatorios' });
     }
 
-    // CORRECCIÓN: Usar buscarPorDniGlobal para evitar choques con DNI inactivos
     const clienteExistente = await ClienteModel.buscarPorDniGlobal(dni);
     if (clienteExistente) {
       if (clienteExistente.estado === 'I') {
@@ -314,6 +312,8 @@ exports.recargarSaldoCliente = async (req, res) => {
     }
 
     await ClienteModel.actualizarSaldo(id, monto, 'SUMA');
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
+
     res.json({ status: 'OK', mensaje: 'Saldo recargado correctamente' });
   } catch (error) {
     console.error('Error al recargar saldo:', error);
@@ -321,10 +321,34 @@ exports.recargarSaldoCliente = async (req, res) => {
   }
 };
 
+// NUEVO: Función para corregir / descontar saldo
+exports.descontarSaldoCliente = async (req, res) => {
+  try {
+    const { id, monto } = req.body;
+    if (!id || !monto || parseFloat(monto) <= 0) return res.status(400).json({ status: 'ERROR', error: 'Monto inválido' });
+
+    const cliente = await ClienteModel.buscarPorId(id);
+    if (!cliente) return res.status(404).json({ status: 'ERROR', error: 'Cliente no encontrado' });
+    
+    if (parseFloat(cliente.saldo) < parseFloat(monto)) {
+      return res.status(400).json({ status: 'ERROR', error: `El cliente solo tiene S/ ${parseFloat(cliente.saldo).toFixed(2)}. No puede descontar más de eso.` });
+    }
+
+    await ClienteModel.actualizarSaldo(id, monto, 'RESTA');
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
+    
+    res.json({ status: 'OK', mensaje: 'Saldo corregido exitosamente' });
+  } catch (error) {
+    console.error('Error al descontar saldo:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al procesar el descuento' }); 
+  }
+};
+
 exports.eliminarCliente = async (req, res) => {
   try {
     const id = req.params.id;
     await ClienteModel.inhabilitar(id);
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
     res.json({ status: 'OK', mensaje: 'Cliente inhabilitado correctamente' });
   } catch (error) {
     console.error('Error al eliminar cliente:', error);
@@ -332,11 +356,11 @@ exports.eliminarCliente = async (req, res) => {
   }
 };
 
-// NUEVO: Faltaba restaurar cliente
 exports.restaurarCliente = async (req, res) => {
   try {
     const id = req.params.id;
     await ClienteModel.rehabilitar(id);
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
     res.json({ status: 'OK', mensaje: 'Cliente rehabilitado correctamente' });
   } catch (error) {
     console.error('Error al restaurar cliente:', error);
