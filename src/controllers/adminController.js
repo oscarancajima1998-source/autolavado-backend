@@ -269,6 +269,17 @@ exports.listarClientes = async (req, res) => {
   }
 };
 
+// NUEVO: Faltaba listar inactivos
+exports.listarClientesInactivos = async (req, res) => {
+  try {
+    const clientes = await ClienteModel.listarInactivos();
+    res.json({ status: 'OK', data: clientes });
+  } catch (error) {
+    console.error('Error al listar clientes inactivos:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al obtener los clientes inactivos' });
+  }
+};
+
 exports.crearCliente = async (req, res) => {
   try {
     const { dni, nombres, apellidos, celular, tipo_vehiculo, saldo_inicial } = req.body;
@@ -277,9 +288,13 @@ exports.crearCliente = async (req, res) => {
       return res.status(400).json({ status: 'ERROR', error: 'DNI, Nombres y Apellidos son obligatorios' });
     }
 
-    const clienteExistente = await ClienteModel.buscarPorDni(dni);
+    // CORRECCIÓN: Usar buscarPorDniGlobal para evitar choques con DNI inactivos
+    const clienteExistente = await ClienteModel.buscarPorDniGlobal(dni);
     if (clienteExistente) {
-      return res.status(400).json({ status: 'ERROR', error: 'El DNI ya se encuentra registrado' });
+      if (clienteExistente.estado === 'I') {
+        return res.status(400).json({ status: 'ERROR', error: 'El DNI está registrado pero inhabilitado. Por favor, restáurelo en la tabla de inactivos.' });
+      }
+      return res.status(400).json({ status: 'ERROR', error: 'El DNI ya se encuentra registrado y activo.' });
     }
 
     const nuevoCliente = await ClienteModel.crear({ dni, nombres, apellidos, celular, tipo_vehiculo, saldo_inicial });
@@ -314,5 +329,17 @@ exports.eliminarCliente = async (req, res) => {
   } catch (error) {
     console.error('Error al eliminar cliente:', error);
     res.status(500).json({ status: 'ERROR', error: 'Error al inhabilitar al cliente' });
+  }
+};
+
+// NUEVO: Faltaba restaurar cliente
+exports.restaurarCliente = async (req, res) => {
+  try {
+    const id = req.params.id;
+    await ClienteModel.rehabilitar(id);
+    res.json({ status: 'OK', mensaje: 'Cliente rehabilitado correctamente' });
+  } catch (error) {
+    console.error('Error al restaurar cliente:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al restaurar al cliente' });
   }
 };

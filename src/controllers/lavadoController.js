@@ -5,7 +5,7 @@
 
 const VentaModel = require('../models/ventaModel');
 const MaquinaModel = require('../models/maquinaModel');
-const ClienteModel = require('../models/clienteModel'); // NUEVO: Importación del modelo de clientes
+const ClienteModel = require('../models/clienteModel');
 
 let clientesSSE = [];
 
@@ -150,7 +150,7 @@ exports.procesarPagoFisicoInterno = async (montoMoneda) => {
         monto_objetivo: sesionKiosco.monto_objetivo
       });
     }
-  } catch (error) { console.error('❌ Error en pago físico:', error); }
+  } catch (error) { console.error('Error en pago físico:', error); }
 };
 
 // --- PAGOS DIGITALES (YAPE) ---
@@ -209,10 +209,17 @@ exports.reportarFalla = (req, res) => {
 };
 
 // ========================================================
-// NUEVAS FUNCIONES: CLIENTES PREPAGO Y ARRANQUE PARCIAL
+// FUNCIONES: CLIENTES PREPAGO Y ARRANQUE PARCIAL
 // ========================================================
 
-// 1. Cobro por DNI (Cliente Prepago)
+exports.consultarCliente = async (req, res) => {
+  try {
+    const cliente = await ClienteModel.buscarPorDni(req.params.dni);
+    if (!cliente) return res.status(404).json({ status: 'ERROR', error: 'DNI no registrado o inactivo' });
+    res.json({ status: 'OK', data: cliente });
+  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
+};
+
 exports.pagarConSaldoCliente = async (req, res) => {
   try {
     const { dni } = req.body;
@@ -221,9 +228,14 @@ exports.pagarConSaldoCliente = async (req, res) => {
     const cliente = await ClienteModel.buscarPorDni(dni);
     if (!cliente) return res.status(404).json({ status: 'ERROR', error: 'DNI no registrado o inactivo' });
 
-    const montoAcobrar = sesionKiosco.monto_objetivo;
-    if (parseFloat(cliente.saldo) < montoAcobrar) {
-      return res.status(400).json({ status: 'ERROR', error: `Saldo insuficiente. Tiene S/ ${cliente.saldo}` });
+    let saldoActual = parseFloat(cliente.saldo);
+    if (saldoActual <= 0) return res.status(400).json({ status: 'ERROR', error: 'Su saldo está en S/ 0.00. Recargue en recepción.' });
+
+    let montoAcobrar = sesionKiosco.monto_objetivo;
+    
+    // Si el saldo es menor a lo que cuesta, arranca con lo que tenga.
+    if (saldoActual < montoAcobrar) {
+      montoAcobrar = saldoActual;
     }
 
     await ClienteModel.actualizarSaldo(cliente.id, montoAcobrar, 'RESTA');
@@ -231,11 +243,10 @@ exports.pagarConSaldoCliente = async (req, res) => {
     
     await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
     
-    res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: parseFloat(cliente.saldo) - montoAcobrar });
+    res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: saldoActual - montoAcobrar });
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
 
-// 2. Arranque Parcial (Inicia con lo insertado)
 exports.arranqueParcial = async (req, res) => {
   try {
     if (!sesionKiosco.maquina_id || sesionKiosco.saldo_acumulado <= 0) {

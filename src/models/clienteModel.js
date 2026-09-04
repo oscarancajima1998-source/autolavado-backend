@@ -15,8 +15,18 @@ class ClienteModel {
     return rows;
   }
 
+  static async listarInactivos() {
+    const { rows } = await pool.query(`SELECT * FROM clientes WHERE estado = 'I' ORDER BY nombres ASC`);
+    return rows;
+  }
+
   static async buscarPorDni(dni) {
     const { rows } = await pool.query(`SELECT * FROM clientes WHERE dni = $1 AND estado = 'A'`, [dni]);
+    return rows[0];
+  }
+
+  static async buscarPorDniGlobal(dni) {
+    const { rows } = await pool.query(`SELECT * FROM clientes WHERE dni = $1`, [dni]);
     return rows[0];
   }
 
@@ -30,5 +40,10 @@ class ClienteModel {
   static async inhabilitar(id) {
     await pool.query(`UPDATE clientes SET estado = 'I' WHERE id = $1`, [id]);
   }
+
+  static async rehabilitar(id) {
+    await pool.query(`UPDATE clientes SET estado = 'A' WHERE id = $1`, [id]);
+  }
 }
+
 module.exports = ClienteModel;

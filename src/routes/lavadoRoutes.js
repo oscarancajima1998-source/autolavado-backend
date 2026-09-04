@@ -16,11 +16,14 @@ router.get('/dashboard-datos', lavadoController.obtenerDatosDashboard);
 router.post('/seleccionar-maquina', lavadoController.seleccionarMaquina);
 router.post('/activar-con-credito', lavadoController.activarConCredito);
 router.post('/webhook/yape', lavadoController.recibirWebhookYape);
+router.post('/reportar-falla', lavadoController.reportarFalla);
 
 // ==========================================
-// NUEVO: RUTA PARA EL BOTÓN DE EMERGENCIA
+// RUTAS PARA CLIENTES PREPAGO EN EL KIOSCO
 // ==========================================
-router.post('/reportar-falla', lavadoController.reportarFalla);
+router.get('/cliente/:dni', lavadoController.consultarCliente);
+router.post('/pagar-saldo-cliente', lavadoController.pagarConSaldoCliente);
+router.post('/arranque-parcial', lavadoController.arranqueParcial);
 
 // Carga inicial de máquinas en el kiosco
 router.get('/maquinas-activas/:estacionId', async (req, res) => {

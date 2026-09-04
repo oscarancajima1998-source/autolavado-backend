@@ -11,7 +11,7 @@ const { verificarToken } = require('../middlewares/authMiddleware');
 router.post('/login', adminController.login);
 router.get('/perfil', verificarToken, (req, res) => { res.json({ status: 'OK', usuario: req.usuario }); });
 
-// RUTAS DE MÁQUINAS Y DASHBOARD
+// --- MÁQUINAS Y DASHBOARD ---
 router.get('/maquinas/estacion/:estacionId', verificarToken, adminController.listarMaquinas);
 router.get('/maquinas-inactivas/estacion/:estacionId', verificarToken, adminController.listarMaquinasInactivas);
 router.post('/maquinas', verificarToken, adminController.crearMaquina);
@@ -22,14 +22,14 @@ router.delete('/maquinas/:id', verificarToken, adminController.ocultarMaquina);
 router.post('/maquinas/activar-manual', verificarToken, adminController.activarManual);
 router.post('/maquinas/detener-manual', verificarToken, adminController.detenerManual);
 router.get('/reportes/estacion/:estacionId', verificarToken, adminController.obtenerReportesEstacion);
-
-// RUTA ACTIVACIÓN EMERGENCIA KIOSCO
 router.post('/activacion-emergencia', adminController.activacionEmergenciaKiosco);
 
-// RUTAS DE CLIENTES PREPAGO
+// --- CLIENTES PREPAGO ---
 router.get('/clientes', verificarToken, adminController.listarClientes);
+router.get('/clientes-inactivos', verificarToken, adminController.listarClientesInactivos);
 router.post('/clientes', verificarToken, adminController.crearCliente);
 router.post('/clientes/recargar', verificarToken, adminController.recargarSaldoCliente);
+router.put('/clientes/restaurar/:id', verificarToken, adminController.restaurarCliente);
 router.delete('/clientes/:id', verificarToken, adminController.eliminarCliente);
 
 module.exports = router;

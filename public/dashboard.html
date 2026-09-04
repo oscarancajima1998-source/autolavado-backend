@@ -167,9 +167,25 @@
                 <th class="pb-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody id="tabla-clientes-body" class="divide-y divide-slate-800/60">
-              <!-- Renderizado por JS -->
-            </tbody>
+            <tbody id="tabla-clientes-body" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- NUEVA SECCIÓN AÑADIDA: CLIENTES INACTIVOS -->
+      <section class="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-6 shadow-xl">
+        <div class="mb-4">
+          <h2 class="text-lg font-black text-slate-300 flex items-center gap-2"><span class="w-3 h-3 bg-rose-500 rounded-full"></span> Clientes Inhabilitados</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-800/80 text-slate-500 text-xs uppercase font-bold">
+                <th class="pb-3">Cliente / DNI</th>
+                <th class="pb-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-clientes-inactivos-body" class="divide-y divide-slate-800/40 text-slate-400"></tbody>
           </table>
         </div>
       </section>
@@ -467,7 +483,11 @@
       document.getElementById(`seccion-${id}`).classList.remove('hidden');
       document.getElementById(`tab-${id}`).className = `text-${id==='clientes'?'indigo':'cyan'}-400 font-bold border-b-2 border-${id==='clientes'?'indigo':'cyan'}-400 px-2 py-1 transition`;
       
-      if(id === 'clientes') cargarClientes();
+      // CORRECCIÓN: Al cambiar a la pestaña clientes, se cargan los activos e inactivos
+      if(id === 'clientes') {
+        cargarClientes();
+        cargarClientesInactivos();
+      }
     }
 
     // --- FUNCIONES REPORTES Y MÁQUINAS ---
@@ -739,6 +759,31 @@
       } catch(e) { console.error('Error al cargar clientes:', e); }
     }
 
+    // NUEVO: Faltaba la función JS para cargar a los inactivos
+    async function cargarClientesInactivos() {
+      try {
+        const res = await fetch('/api/admin/clientes-inactivos', { headers: { 'Authorization': `Bearer ${tokenActual}` } });
+        const data = await res.json();
+        const tbody = document.getElementById('tabla-clientes-inactivos-body'); 
+        tbody.innerHTML = '';
+        
+        if (data.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="2" class="py-3 text-center text-slate-600 text-xs italic">No hay clientes ocultos.</td></tr>';
+          return;
+        }
+        
+        data.data.forEach(c => {
+          tbody.innerHTML += `
+            <tr class="hover:bg-slate-900/30 transition border-b border-slate-800/30">
+              <td class="py-3 font-medium text-slate-400 line-through text-sm">${c.nombres} ${c.apellidos} <span class="text-xs text-slate-600 ml-1">(DNI: ${c.dni})</span></td>
+              <td class="py-3 text-right">
+                <button onclick="confirmarRestaurarCliente(${c.id}, '${c.nombres}')" class="bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 px-3 py-1.5 rounded-lg text-xs font-bold transition">⚡ Rehabilitar</button>
+              </td>
+            </tr>`;
+        });
+      } catch(e) { console.error('Error al cargar clientes inactivos:', e); }
+    }
+
     function abrirModalCliente() { 
       document.getElementById('cli-dni').value = '';
       document.getElementById('cli-nom').value = '';
@@ -770,7 +815,6 @@
           body: JSON.stringify(payload) 
         });
         
-        // INTERCEPCIÓN DE ERRORES HTTP (Evita el "Error de conexión" ciego)
         if (!res.ok) {
           const errorText = await res.text();
           console.error("Respuesta del servidor no es OK:", res.status, errorText);
@@ -845,10 +889,34 @@
           if (data.status === 'OK') {
             mostrarToast('Cliente inhabilitado.');
             cargarClientes();
+            cargarClientesInactivos(); // CORRECCIÓN: Actualizar la tabla de inactivos
           }
         } catch(e) { 
           console.error(e);
           mostrarToast('Error de conexión al inhabilitar', 'error'); 
+        }
+      });
+    }
+
+    // NUEVO: Faltaba la función de restauración JS
+    function confirmarRestaurarCliente(id, nombre) {
+      mostrarConfirmacion(`Rehabilitar Cliente`, `¿Volver a habilitar a "${nombre}" para que use su saldo?`, 'bg-emerald-500/20 text-emerald-500', 'bg-emerald-500 hover:bg-emerald-400', async () => {
+        try {
+          const res = await fetch(`/api/admin/clientes/restaurar/${id}`, { 
+            method: 'PUT', 
+            headers: { 'Authorization': `Bearer ${tokenActual}` } 
+          });
+          
+          if (!res.ok) throw new Error("Error HTTP " + res.status);
+          
+          const data = await res.json();
+          if (data.status === 'OK') { 
+            mostrarToast('Cliente rehabilitado con éxito.'); 
+            cargarClientes(); 
+            cargarClientesInactivos(); 
+          }
+        } catch(e) { 
+          mostrarToast('Error al restaurar al cliente.', 'error'); 
         }
       });
     }
