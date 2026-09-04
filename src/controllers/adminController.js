@@ -1,6 +1,6 @@
 /**
  * CONTROLADOR: adminController
- * Maneja el Dashboard, Login, Reportes, Control Manual y Emergencias
+ * Maneja el Dashboard, Login, Reportes, Control Manual, Emergencias y Clientes
  */
 
 const jwt = require('jsonwebtoken');
@@ -8,6 +8,7 @@ const mqttClient = require('../services/mqttService');
 const lavadoController = require('./lavadoController');
 const VentaModel = require('../models/ventaModel');
 const MaquinaModel = require('../models/maquinaModel');
+const ClienteModel = require('../models/clienteModel'); // INTEGRACIÓN DE CLIENTES
 
 // =======================================================
 // 1. AUTENTICACIÓN
@@ -222,12 +223,10 @@ exports.detenerManual = async (req, res) => {
   }
 };
 
-// NUEVA FUNCIÓN: Activación rápida / de cortesía desde el Kiosco
 exports.activacionEmergenciaKiosco = async (req, res) => {
   try {
     const { maquina_id, password } = req.body;
 
-    // Validación de seguridad (Contraseña por defecto: 123456)
     if (password !== (process.env.PASS_EMERGENCIA || '123456')) {
       return res.status(403).json({ status: 'ERROR', error: 'Contraseña de administrador incorrecta' });
     }
@@ -235,7 +234,6 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
     const maquina = await VentaModel.obtenerMaquinaPorId(maquina_id);
     if (!maquina) return res.status(404).json({ status: 'ERROR', error: 'Máquina inválida' });
 
-    // Tiempo fijo por cortesía/emergencia (Ej: 180 segundos)
     const tiempo_cortesia = 180;
 
     const payload = JSON.stringify({ 
@@ -255,5 +253,66 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
   } catch (error) {
     console.error('Error en activación de emergencia:', error);
     res.status(500).json({ status: 'ERROR', error: 'Error al procesar la emergencia' });
+  }
+};
+
+// =======================================================
+// 5. GESTIÓN DE CLIENTES PREPAGO
+// =======================================================
+exports.listarClientes = async (req, res) => {
+  try {
+    const clientes = await ClienteModel.listarActivos();
+    res.json({ status: 'OK', data: clientes });
+  } catch (error) {
+    console.error('Error al listar clientes:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al obtener los clientes' });
+  }
+};
+
+exports.crearCliente = async (req, res) => {
+  try {
+    const { dni, nombres, apellidos, celular, tipo_vehiculo, saldo_inicial } = req.body;
+
+    if (!dni || !nombres || !apellidos) {
+      return res.status(400).json({ status: 'ERROR', error: 'DNI, Nombres y Apellidos son obligatorios' });
+    }
+
+    const clienteExistente = await ClienteModel.buscarPorDni(dni);
+    if (clienteExistente) {
+      return res.status(400).json({ status: 'ERROR', error: 'El DNI ya se encuentra registrado' });
+    }
+
+    const nuevoCliente = await ClienteModel.crear({ dni, nombres, apellidos, celular, tipo_vehiculo, saldo_inicial });
+    res.json({ status: 'OK', data: nuevoCliente });
+  } catch (error) {
+    console.error('Error al crear cliente:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al registrar al cliente en la base de datos' });
+  }
+};
+
+exports.recargarSaldoCliente = async (req, res) => {
+  try {
+    const { id, monto } = req.body;
+
+    if (!id || !monto || parseFloat(monto) <= 0) {
+      return res.status(400).json({ status: 'ERROR', error: 'Datos inválidos para la recarga' });
+    }
+
+    await ClienteModel.actualizarSaldo(id, monto, 'SUMA');
+    res.json({ status: 'OK', mensaje: 'Saldo recargado correctamente' });
+  } catch (error) {
+    console.error('Error al recargar saldo:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al procesar la recarga' });
+  }
+};
+
+exports.eliminarCliente = async (req, res) => {
+  try {
+    const id = req.params.id;
+    await ClienteModel.inhabilitar(id);
+    res.json({ status: 'OK', mensaje: 'Cliente inhabilitado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar cliente:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al inhabilitar al cliente' });
   }
 };
