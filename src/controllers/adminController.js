@@ -8,7 +8,7 @@ const mqttClient = require('../services/mqttService');
 const lavadoController = require('./lavadoController');
 const VentaModel = require('../models/ventaModel');
 const MaquinaModel = require('../models/maquinaModel');
-const ClienteModel = require('../models/clienteModel'); // INTEGRACIÓN DE CLIENTES
+const ClienteModel = require('../models/clienteModel');
 
 // =======================================================
 // 1. AUTENTICACIÓN
@@ -223,9 +223,10 @@ exports.detenerManual = async (req, res) => {
   }
 };
 
+// AQUI ESTA LA FUNCION CORREGIDA:
 exports.activacionEmergenciaKiosco = async (req, res) => {
   try {
-    const { maquina_id, password } = req.body;
+    const { maquina_id, password, monto } = req.body; // <-- Capturamos el monto
 
     if (password !== (process.env.PASS_EMERGENCIA || '123456')) {
       return res.status(403).json({ status: 'ERROR', error: 'Contraseña de administrador incorrecta' });
@@ -234,12 +235,23 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
     const maquina = await VentaModel.obtenerMaquinaPorId(maquina_id);
     if (!maquina) return res.status(404).json({ status: 'ERROR', error: 'Máquina inválida' });
 
-    const tiempo_cortesia = 180;
+    // Multiplicamos el monto ingresado por la configuración real de la máquina
+    const montoIngresado = parseFloat(monto) || 1;
+    const tiempo_asignado = Math.round(montoIngresado * maquina.segundos_por_sol);
+
+    // Registramos la venta para que los ingresos cuadren
+    await VentaModel.crearVenta({ 
+      estacion_id: maquina.estacion_id, 
+      maquina_id: maquina.id, 
+      monto: montoIngresado, 
+      metodo_pago: 'EMERGENCIA_PRESENCIAL', 
+      tiempo_otorgado_seg: tiempo_asignado 
+    });
 
     const payload = JSON.stringify({ 
       maquina_id: maquina.id, 
       nombre_maquina: maquina.nombre, 
-      tiempo_seg: tiempo_cortesia, 
+      tiempo_seg: tiempo_asignado, 
       pin_hardware: maquina.pin_hardware 
     });
     
@@ -247,9 +259,10 @@ exports.activacionEmergenciaKiosco = async (req, res) => {
       if (err) console.error('Error enviando mensaje MQTT de emergencia:', err);
     });
 
-    lavadoController.iniciarTemporizador(maquina.id, tiempo_cortesia); 
+    lavadoController.iniciarTemporizador(maquina.id, tiempo_asignado); 
     
-    res.json({ status: 'OK', mensaje: 'Activación de emergencia procesada' });
+    // Retornamos el tiempo_seg para que el kiosco pueda mostrarlo visualmente
+    res.json({ status: 'OK', mensaje: 'Activación de emergencia procesada', tiempo_seg: tiempo_asignado });
   } catch (error) {
     console.error('Error en activación de emergencia:', error);
     res.status(500).json({ status: 'ERROR', error: 'Error al procesar la emergencia' });
@@ -312,7 +325,7 @@ exports.recargarSaldoCliente = async (req, res) => {
     }
 
     await ClienteModel.actualizarSaldo(id, monto, 'SUMA');
-    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
 
     res.json({ status: 'OK', mensaje: 'Saldo recargado correctamente' });
   } catch (error) {
@@ -321,7 +334,6 @@ exports.recargarSaldoCliente = async (req, res) => {
   }
 };
 
-// NUEVO: Función para corregir / descontar saldo
 exports.descontarSaldoCliente = async (req, res) => {
   try {
     const { id, monto } = req.body;
@@ -348,7 +360,7 @@ exports.eliminarCliente = async (req, res) => {
   try {
     const id = req.params.id;
     await ClienteModel.inhabilitar(id);
-    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); 
     res.json({ status: 'OK', mensaje: 'Cliente inhabilitado correctamente' });
   } catch (error) {
     console.error('Error al eliminar cliente:', error);
@@ -360,7 +372,7 @@ exports.restaurarCliente = async (req, res) => {
   try {
     const id = req.params.id;
     await ClienteModel.rehabilitar(id);
-    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); // NUEVO
+    lavadoController.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' }); 
     res.json({ status: 'OK', mensaje: 'Cliente rehabilitado correctamente' });
   } catch (error) {
     console.error('Error al restaurar cliente:', error);

@@ -552,19 +552,24 @@
         const data = await res.json();
         
         if (data.status !== 'OK') {
-          passInput.value = ''; // Limpiamos por seguridad
+          passInput.value = ''; 
           mostrarToast(data.error || 'Contraseña incorrecta', 'error');
         } else {
-          // ÉXITO: Limpiamos input y cerramos ventana
           passInput.value = '';
           cerrarModalEmergencia();
           mostrarToast('¡Activación de emergencia exitosa!', 'exito');
 
-          // Avanzamos manualmente a la pantalla 3 (Éxito)
+          // CÁLCULO DE MINUTOS PARA LA PANTALLA VISUAL
+          const tiempoTotal = data.tiempo_seg || (Number(montoPagado) * maquina.seg);
+          const min = Math.floor(tiempoTotal / 60);
+          const seg = tiempoTotal % 60;
+
           document.getElementById('titulo-exito').innerText = '¡ACTIVACIÓN FORZADA!';
           document.getElementById('lbl-exito').innerHTML = `
             <div class="text-slate-300 text-sm mb-1">Máquina: <span class="text-cyan-400 font-bold text-base">${maquina.nombre || 'Seleccionada'}</span></div>
-            <div class="bg-amber-950/60 border border-amber-800 text-amber-300 font-bold py-2 px-4 rounded-xl text-sm mt-3">Activación por Administrador</div>
+            <div class="text-slate-300 text-sm mb-3">Monto Registrado: <span class="text-emerald-400 font-bold text-2xl">S/ ${Number(montoPagado).toFixed(2)}</span></div>
+            <div class="bg-amber-950/60 border border-amber-800 text-amber-300 font-bold py-2 px-4 rounded-xl text-sm mt-3">¡Activación por Administrador!</div>
+            <div class="text-xs text-slate-400 mt-3 font-semibold">Tiempo asignado: ${min} min ${seg > 0 ? seg + ' seg' : ''}</div>
           `;
           
           actualizarNavegacionPasos(3); 
