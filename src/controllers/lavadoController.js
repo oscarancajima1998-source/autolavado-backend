@@ -230,7 +230,7 @@ exports.pagarConSaldoCliente = async (req, res) => {
 
     let saldoActual = parseFloat(cliente.saldo);
     
-    // VALIDACIÓN ESPECÍFICA SOLICITADA PARA SALDO 0 O NEGATIVO
+    // VALIDACIÓN DE SALDO 0 O NEGATIVO SOLICITADA
     if (saldoActual <= 0) {
       return res.status(400).json({ 
         status: 'ERROR', 
@@ -240,7 +240,6 @@ exports.pagarConSaldoCliente = async (req, res) => {
 
     let montoAcobrar = sesionKiosco.monto_objetivo;
     
-    // Si el saldo es menor a lo que cuesta el servicio, se le consume todo su saldo para un arranque parcial.
     if (saldoActual < montoAcobrar) {
       montoAcobrar = saldoActual;
     }
@@ -250,7 +249,6 @@ exports.pagarConSaldoCliente = async (req, res) => {
     
     await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
     
-    // Notificación en tiempo real para el Dashboard administrativo
     exports.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
 
     res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: saldoActual - montoAcobrar });

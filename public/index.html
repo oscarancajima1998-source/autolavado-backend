@@ -15,7 +15,8 @@
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between p-4 sm:p-6 overflow-x-hidden">
   
-  <div id="toast-container" class="fixed top-4 right-4 z-[60] flex flex-col gap-2"></div>
+  <!-- AQUI SE CORRIGIO EL z-[100] PARA QUE LAS ALERTAS ESTÉN POR ENCIMA DE TODO -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2"></div>
 
   <!-- ENCABEZADO -->
   <header class="flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-slate-800/80 pb-4">
@@ -212,7 +213,7 @@
       toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : tipo === 'alerta' ? '⚠️' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       container.appendChild(toast);
       
-      // Se aumentó el tiempo a 6 segundos (6000ms) para que el cliente pueda leer mensajes largos.
+      // Tiempo ampliado a 6 segundos para que el cliente lea el mensaje de error completo
       setTimeout(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-exit');
@@ -451,7 +452,7 @@
     }
     
     function cerrarModalDni() { 
-      document.getElementById('form-dni').value = ''; // BUENA PRÁCTICA: Limpiar el input por seguridad
+      document.getElementById('form-dni').value = '';
       document.getElementById('modal-dni').classList.add('hidden'); 
     }
 
@@ -467,23 +468,27 @@
           body: JSON.stringify({ dni }) 
         });
 
-        // La magia de la corrección: Siempre convertimos la respuesta a JSON aunque sea un error HTTP 400
+        // Convertimos a JSON sin importar si el HTTP Status es 400
         const data = await res.json();
         
-        // Si no es status 200 (res.ok) o si el json mismo indica 'ERROR'
+        // CORRECCIÓN: Si el servidor devuelve error, CERRAMOS el modal para ver el Toast
         if (!res.ok || data.status === 'ERROR') {
-          dniInput.value = ''; // Limpiamos el DNI para que no se quede escrito
-          mostrarToast(data.error || 'Error al procesar el pago.', 'error');
-          return; // Detenemos la función para evitar mensajes de éxito
+          dniInput.value = ''; 
+          cerrarModalDni(); // Ocultamos el modal que estorba
+          // Mostramos la alerta. Si el backend no da texto, ponemos el que pediste
+          mostrarToast(data.error || 'TU SALDO ES INSUFICIENTE. CONTÁCTATE CON EL ADMINISTRADOR Y RECARGA.', 'error');
+          return; 
         }
 
-        // Si llega a esta línea, el pago fue un éxito rotundo
+        // Si es exitoso
         dniInput.value = '';
+        cerrarModalDni();
         mostrarToast(`¡Gracias ${data.cliente}! Saldo restante: S/ ${data.nuevo_saldo.toFixed(2)}`, 'exito');
         
       } catch (err) { 
         console.error("Error en pago DNI:", err);
-        mostrarToast('Error de conexión con el servidor', 'error'); 
+        cerrarModalDni();
+        mostrarToast('Error de conexión con el servidor. Intente nuevamente.', 'error'); 
       }
     }
 
