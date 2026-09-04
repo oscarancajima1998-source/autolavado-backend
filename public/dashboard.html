@@ -760,15 +760,26 @@
         apellidos: document.getElementById('cli-ape').value,
         celular: document.getElementById('cli-cel').value,
         tipo_vehiculo: document.getElementById('cli-veh').value,
-        saldo_inicial: document.getElementById('cli-saldo').value
+        saldo_inicial: parseFloat(document.getElementById('cli-saldo').value) || 0
       };
+      
       try {
         const res = await fetch('/api/admin/clientes', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenActual}` }, 
           body: JSON.stringify(payload) 
         });
+        
+        // INTERCEPCIÓN DE ERRORES HTTP (Evita el "Error de conexión" ciego)
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Respuesta del servidor no es OK:", res.status, errorText);
+          mostrarToast(`Error del servidor: Código ${res.status}`, 'error');
+          return;
+        }
+
         const data = await res.json();
+        
         if (data.status === 'OK') { 
           cerrarModalCliente(); 
           cargarClientes(); 
@@ -776,7 +787,10 @@
         } else {
           mostrarToast(data.error || 'Error al registrar cliente', 'error');
         }
-      } catch(e) { mostrarToast('Error de conexión', 'error'); }
+      } catch(e) { 
+        console.error("Fallo completo en fetch o parseo:", e);
+        mostrarToast('Error de conexión. Revisa la consola F12', 'error'); 
+      }
     }
 
     function abrirModalRecarga(id, nombre) {
@@ -794,13 +808,16 @@
     async function guardarRecarga(e) {
       e.preventDefault();
       const id = document.getElementById('form-recarga-id').value;
-      const monto = document.getElementById('form-recarga-monto').value;
+      const monto = parseFloat(document.getElementById('form-recarga-monto').value);
       try {
         const res = await fetch('/api/admin/clientes/recargar', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenActual}` }, 
           body: JSON.stringify({ id, monto }) 
         });
+        
+        if (!res.ok) throw new Error("Error HTTP " + res.status);
+        
         const data = await res.json();
         if (data.status === 'OK') { 
           cerrarModalRecarga(); 
@@ -809,7 +826,10 @@
         } else {
           mostrarToast(data.error || 'Error al recargar', 'error');
         }
-      } catch(e) { mostrarToast('Error de conexión', 'error'); }
+      } catch(e) { 
+        console.error(e);
+        mostrarToast('Error de conexión al recargar', 'error'); 
+      }
     }
 
     function eliminarCliente(id, nombre) {
@@ -819,12 +839,17 @@
             method: 'DELETE', 
             headers: { 'Authorization': `Bearer ${tokenActual}` } 
           });
+          if (!res.ok) throw new Error("Error HTTP " + res.status);
+          
           const data = await res.json();
           if (data.status === 'OK') {
             mostrarToast('Cliente inhabilitado.');
             cargarClientes();
           }
-        } catch(e) { mostrarToast('Error al inhabilitar', 'error'); }
+        } catch(e) { 
+          console.error(e);
+          mostrarToast('Error de conexión al inhabilitar', 'error'); 
+        }
       });
     }
   </script>
