@@ -156,16 +156,31 @@ exports.procesarPagoFisicoInterno = async (montoMoneda) => {
 // --- PAGOS DIGITALES (YAPE) ---
 exports.recibirWebhookYape = async (req, res) => {
   try {
+    // 1. ESTO IMPRIMIRÁ EN LOS LOGS DE RENDER LO QUE LLEGA DESDE EL CELULAR
+    console.log("🔔 [WEBHOOK YAPE RECIBIDO]:", req.body);
+
     let { monto, texto_notificacion } = req.body;
+
+    // Si req.body está vacío porque el JSON llegó mal formado:
+    if (!req.body || Object.keys(req.body).length === 0) {
+       console.log("❌ ERROR: El JSON llegó vacío o mal formado desde MacroDroid.");
+       return res.status(400).json({ status: 'ERROR', mensaje: 'JSON vacío.' });
+    }
 
     if (!monto && texto_notificacion) {
       const matchMonto = texto_notificacion.match(/S\/\s*(\d+(\.\d+)?)/i);
       if (matchMonto) { monto = parseFloat(matchMonto[1]); }
     }
-    if (!monto || isNaN(monto)) return res.status(400).json({ status: 'ERROR', mensaje: 'Sin monto.' });
+    
+    if (!monto || isNaN(monto)) {
+      console.log("❌ ERROR: No se detectó un monto válido en el texto:", texto_notificacion);
+      return res.status(400).json({ status: 'ERROR', mensaje: 'Sin monto.' });
+    }
+    
     monto = Math.floor(monto);
-
     sesionKiosco.saldo_acumulado += monto;
+    
+    console.log(`✅ Monto extraído: S/ ${monto}. Saldo en kiosco: S/ ${sesionKiosco.saldo_acumulado}`);
 
     if (!sesionKiosco.maquina_id) {
       exports.notificarClientes({ status: 'CREDITO_PENDIENTE', saldo_actual: sesionKiosco.saldo_acumulado });
@@ -187,7 +202,10 @@ exports.recibirWebhookYape = async (req, res) => {
       });
     }
     res.json({ status: 'OK', mensaje: 'Pago procesado' });
-  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
+  } catch (error) { 
+    console.error("❌ ERROR CRÍTICO EN WEBHOOK:", error);
+    res.status(500).json({ status: 'ERROR', error: error.message }); 
+  }
 };
 
 // --- ACTIVACIÓN VÍA KIOSCO (Cortesía o Saldo Web) ---
