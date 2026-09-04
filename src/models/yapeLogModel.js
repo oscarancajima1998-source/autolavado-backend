@@ -3,14 +3,14 @@
  * Proyecto: Carwash ServiProf
  */
 
-const db = require('../config/db'); // Ajusta la ruta a tu archivo de conexión a la BD
+const pool = require('../config/database'); // <-- ¡Corregido aquí!
 
 class YapeLogModel {
   static async registrar(texto, monto, estado) {
     try {
       const query = `INSERT INTO historial_yape (texto_notificacion, monto_detectado, estado) VALUES ($1, $2, $3) RETURNING *`;
       const values = [texto, monto || 0, estado];
-      const { rows } = await db.query(query, values);
+      const { rows } = await pool.query(query, values); // <-- Y usamos 'pool' aquí
       return rows[0];
     } catch (error) {
       console.error("Error al registrar log de Yape en BD:", error);
@@ -41,7 +41,7 @@ class YapeLogModel {
       // Siempre ordenamos en formato DESC (el más reciente primero)
       query += ` ORDER BY fecha DESC LIMIT 1000`;
 
-      const { rows } = await db.query(query, values);
+      const { rows } = await pool.query(query, values); // <-- Y usamos 'pool' aquí
       return rows;
     } catch (error) {
       console.error("Error al listar logs de Yape:", error);
