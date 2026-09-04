@@ -212,13 +212,14 @@
             <thead>
               <tr class="border-b border-slate-800 text-slate-400 text-xs uppercase font-bold">
                 <th class="pb-3">ID / Fecha</th>
+                <th class="pb-3 text-center">Cód. Op.</th>
                 <th class="pb-3">Texto de la Notificación</th>
                 <th class="pb-3 text-center">Monto</th>
                 <th class="pb-3 text-right">Estado</th>
               </tr>
             </thead>
             <tbody id="tabla-yape-body" class="divide-y divide-slate-800/60">
-              <tr><td colspan="4" class="py-4 text-center text-slate-500">Cargando registros...</td></tr>
+              <tr><td colspan="5" class="py-4 text-center text-slate-500">Cargando registros...</td></tr>
             </tbody>
           </table>
         </div>
@@ -483,6 +484,13 @@
 
       evtSource.onmessage = function(e) {
         const data = JSON.parse(e.data);
+
+        // NUEVO: ACTUALIZAR YAPE AUTOMÁTICAMENTE
+        if (data.status === 'NUEVO_YAPE') {
+          if (!document.getElementById('seccion-yape').classList.contains('hidden')) {
+            cargarHistorialYape();
+          }
+        }
 
         if (data.status === 'ALERTA_SOPORTE') {
           mostrarAlertaSoporte(data.maquina_nombre);
@@ -1036,7 +1044,7 @@
       const fin = document.getElementById('filtro-fin-yape').value;
       const tbody = document.getElementById('tabla-yape-body');
       
-      tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500 font-bold animate-pulse">Consultando auditoría...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500 font-bold animate-pulse">Consultando auditoría...</td></tr>';
 
       try {
         let url = '/api/lavado/historial-yape';
@@ -1045,22 +1053,26 @@
         if (fin) params.append('fin', fin);
         if (params.toString()) url += `?${params.toString()}`;
 
-        // Añadimos el header por si en algún momento lo proteges con token
         const res = await fetch(url, { headers: { 'Authorization': `Bearer ${tokenActual}` } });
         const data = await res.json();
 
         if (data.status === 'OK') {
           tbody.innerHTML = '';
           if(data.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500">No hay notificaciones registradas en este periodo.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No hay notificaciones registradas en este periodo.</td></tr>';
             return;
           }
           data.data.forEach(log => {
+            const codigo = log.codigo_operacion ? log.codigo_operacion : '-';
+
             tbody.innerHTML += `
               <tr class="hover:bg-slate-800/30 transition border-b border-slate-800/50">
                 <td class="py-4">
                   <div class="font-bold text-white text-sm">#${log.id}</div>
                   <div class="text-xs text-slate-500 mt-1">${formatearFechaYape(log.fecha)}</div>
+                </td>
+                <td class="py-4 text-center">
+                  <span class="bg-slate-800 text-slate-300 px-2 py-1 rounded text-xs font-mono border border-slate-700">${codigo}</span>
                 </td>
                 <td class="py-4 text-xs text-slate-400 max-w-sm truncate" title="${log.texto_notificacion}">
                   ${log.texto_notificacion}
@@ -1076,7 +1088,7 @@
           });
         }
       } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-rose-500 font-bold">Error de conexión al cargar historial.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-rose-500 font-bold">Error de conexión al cargar historial.</td></tr>';
       }
     }
 

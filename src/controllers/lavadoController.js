@@ -162,9 +162,17 @@ exports.recibirWebhookYape = async (req, res) => {
     let { monto, texto_notificacion } = req.body;
     const textoCrudo = texto_notificacion || JSON.stringify(req.body);
 
+    // NUEVO: Intentar extraer el código de operación o seguridad
+    let codigoOperacion = null;
+    if (texto_notificacion) {
+      const matchCodigo = texto_notificacion.match(/(?:cód.*?seguridad|operaci[oó]n|codigo)\s*[:es]*\s*(\d+)/i);
+      if (matchCodigo) codigoOperacion = matchCodigo[1];
+    }
+
     if (!req.body || Object.keys(req.body).length === 0) {
        console.log("❌ ERROR: El JSON llegó vacío o mal formado desde MacroDroid.");
-       await YapeLogModel.registrar("JSON VACÍO O MAL FORMADO", 0, "ERROR_JSON");
+       await YapeLogModel.registrar("JSON VACÍO O MAL FORMADO", 0, "ERROR_JSON", null);
+       exports.notificarClientes({ status: 'NUEVO_YAPE' }); // <-- Avisa al Dashboard
        return res.status(400).json({ status: 'ERROR', mensaje: 'JSON vacío.' });
     }
 
@@ -175,12 +183,16 @@ exports.recibirWebhookYape = async (req, res) => {
     
     if (!monto || isNaN(monto)) {
       console.log("❌ ERROR: No se detectó un monto en el texto:", texto_notificacion);
-      await YapeLogModel.registrar(textoCrudo, 0, "SIN_MONTO");
+      await YapeLogModel.registrar(textoCrudo, 0, "SIN_MONTO", codigoOperacion);
+      exports.notificarClientes({ status: 'NUEVO_YAPE' }); // <-- Avisa al Dashboard
       return res.status(400).json({ status: 'ERROR', mensaje: 'Sin monto.' });
     }
     
     monto = Math.floor(monto);
-    await YapeLogModel.registrar(textoCrudo, monto, "PROCESADO");
+    
+    // GUARDAR CON CÓDIGO DE OPERACIÓN Y AVISAR AL DASHBOARD
+    await YapeLogModel.registrar(textoCrudo, monto, "PROCESADO", codigoOperacion);
+    exports.notificarClientes({ status: 'NUEVO_YAPE' }); // <-- Avisa al Dashboard
 
     sesionKiosco.saldo_acumulado += monto;
     console.log(`✅ Monto extraído: S/ ${monto}. Saldo en kiosco: S/ ${sesionKiosco.saldo_acumulado}`);
@@ -214,7 +226,7 @@ exports.recibirWebhookYape = async (req, res) => {
 // --- OBTENER HISTORIAL PARA EL DASHBOARD ---
 exports.obtenerHistorialYape = async (req, res) => {
   try {
-    const { inicio, fin } = req.query; // <-- Parámetros de fecha extraídos de la URL
+    const { inicio, fin } = req.query; 
     const logs = await YapeLogModel.listar(inicio, fin);
     res.json({ status: 'OK', data: logs });
   } catch (error) { 
