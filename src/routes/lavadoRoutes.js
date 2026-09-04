@@ -11,6 +11,7 @@ const MaquinaModel = require('../models/maquinaModel');
 // Rutas de eventos y dashboard
 router.get('/eventos', lavadoController.suscribirEventos);
 router.get('/dashboard-datos', lavadoController.obtenerDatosDashboard);
+router.get('/historial-yape', lavadoController.obtenerHistorialYape); // NUEVO ENPOINT
 
 // Rutas de interacción del kiosco
 router.post('/seleccionar-maquina', lavadoController.seleccionarMaquina);

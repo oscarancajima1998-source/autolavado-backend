@@ -6,6 +6,7 @@
 const VentaModel = require('../models/ventaModel');
 const MaquinaModel = require('../models/maquinaModel');
 const ClienteModel = require('../models/clienteModel');
+const YapeLogModel = require('../models/yapeLogModel');
 
 let clientesSSE = [];
 
@@ -156,14 +157,14 @@ exports.procesarPagoFisicoInterno = async (montoMoneda) => {
 // --- PAGOS DIGITALES (YAPE) ---
 exports.recibirWebhookYape = async (req, res) => {
   try {
-    // 1. ESTO IMPRIMIRÁ EN LOS LOGS DE RENDER LO QUE LLEGA DESDE EL CELULAR
     console.log("🔔 [WEBHOOK YAPE RECIBIDO]:", req.body);
 
     let { monto, texto_notificacion } = req.body;
+    const textoCrudo = texto_notificacion || JSON.stringify(req.body);
 
-    // Si req.body está vacío porque el JSON llegó mal formado:
     if (!req.body || Object.keys(req.body).length === 0) {
        console.log("❌ ERROR: El JSON llegó vacío o mal formado desde MacroDroid.");
+       await YapeLogModel.registrar("JSON VACÍO O MAL FORMADO", 0, "ERROR_JSON");
        return res.status(400).json({ status: 'ERROR', mensaje: 'JSON vacío.' });
     }
 
@@ -173,13 +174,15 @@ exports.recibirWebhookYape = async (req, res) => {
     }
     
     if (!monto || isNaN(monto)) {
-      console.log("❌ ERROR: No se detectó un monto válido en el texto:", texto_notificacion);
+      console.log("❌ ERROR: No se detectó un monto en el texto:", texto_notificacion);
+      await YapeLogModel.registrar(textoCrudo, 0, "SIN_MONTO");
       return res.status(400).json({ status: 'ERROR', mensaje: 'Sin monto.' });
     }
     
     monto = Math.floor(monto);
+    await YapeLogModel.registrar(textoCrudo, monto, "PROCESADO");
+
     sesionKiosco.saldo_acumulado += monto;
-    
     console.log(`✅ Monto extraído: S/ ${monto}. Saldo en kiosco: S/ ${sesionKiosco.saldo_acumulado}`);
 
     if (!sesionKiosco.maquina_id) {
@@ -204,6 +207,17 @@ exports.recibirWebhookYape = async (req, res) => {
     res.json({ status: 'OK', mensaje: 'Pago procesado' });
   } catch (error) { 
     console.error("❌ ERROR CRÍTICO EN WEBHOOK:", error);
+    res.status(500).json({ status: 'ERROR', error: error.message }); 
+  }
+};
+
+// --- OBTENER HISTORIAL PARA EL DASHBOARD ---
+exports.obtenerHistorialYape = async (req, res) => {
+  try {
+    const { inicio, fin } = req.query; // <-- Parámetros de fecha extraídos de la URL
+    const logs = await YapeLogModel.listar(inicio, fin);
+    res.json({ status: 'OK', data: logs });
+  } catch (error) { 
     res.status(500).json({ status: 'ERROR', error: error.message }); 
   }
 };
@@ -248,25 +262,17 @@ exports.pagarConSaldoCliente = async (req, res) => {
 
     let saldoActual = parseFloat(cliente.saldo);
     
-    // VALIDACIÓN DE SALDO 0 O NEGATIVO SOLICITADA
     if (saldoActual <= 0) {
-      return res.status(400).json({ 
-        status: 'ERROR', 
-        error: 'TU SALDO ES INSUFICIENTE. CONTÁCTATE CON EL ADMINISTRADOR Y RECARGA.' 
-      });
+      return res.status(400).json({ status: 'ERROR', error: 'TU SALDO ES INSUFICIENTE. CONTÁCTATE CON EL ADMINISTRADOR Y RECARGA.' });
     }
 
     let montoAcobrar = sesionKiosco.monto_objetivo;
-    
-    if (saldoActual < montoAcobrar) {
-      montoAcobrar = saldoActual;
-    }
+    if (saldoActual < montoAcobrar) { montoAcobrar = saldoActual; }
 
     await ClienteModel.actualizarSaldo(cliente.id, montoAcobrar, 'RESTA');
     const maquina = await VentaModel.obtenerMaquinaPorId(sesionKiosco.maquina_id);
     
     await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
-    
     exports.notificarClientes({ status: 'CLIENTE_ACTUALIZADO' });
 
     res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: saldoActual - montoAcobrar });
@@ -283,7 +289,6 @@ exports.arranqueParcial = async (req, res) => {
     const montoIngresado = sesionKiosco.saldo_acumulado;
     
     await ejecutarActivacion(maquina, montoIngresado, 'EFECTIVO_PARCIAL');
-    
     res.json({ status: 'OK', mensaje: 'Arranque forzado con saldo parcial' });
   } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };
