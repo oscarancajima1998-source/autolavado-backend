@@ -5,6 +5,7 @@
 
 const VentaModel = require('../models/ventaModel');
 const MaquinaModel = require('../models/maquinaModel');
+const ClienteModel = require('../models/clienteModel'); // NUEVO: Importación del modelo de clientes
 
 let clientesSSE = [];
 
@@ -35,7 +36,6 @@ setInterval(() => {
       tiempos[id] = faltan;
     } else {
       delete maquinasEnUso[id];
-      // Liberamos la sesión si la máquina que se apagó era la activa
       if (sesionKiosco.maquina_id === parseInt(id)) {
         sesionKiosco.maquina_id = null;
       }
@@ -206,4 +206,47 @@ exports.reportarFalla = (req, res) => {
   const { maquina_nombre } = req.body;
   exports.notificarClientes({ status: 'ALERTA_SOPORTE', maquina_nombre });
   res.json({ status: 'OK' });
+};
+
+// ========================================================
+// NUEVAS FUNCIONES: CLIENTES PREPAGO Y ARRANQUE PARCIAL
+// ========================================================
+
+// 1. Cobro por DNI (Cliente Prepago)
+exports.pagarConSaldoCliente = async (req, res) => {
+  try {
+    const { dni } = req.body;
+    if (!sesionKiosco.maquina_id) return res.status(400).json({ status: 'ERROR', error: 'Seleccione máquina primero' });
+
+    const cliente = await ClienteModel.buscarPorDni(dni);
+    if (!cliente) return res.status(404).json({ status: 'ERROR', error: 'DNI no registrado o inactivo' });
+
+    const montoAcobrar = sesionKiosco.monto_objetivo;
+    if (parseFloat(cliente.saldo) < montoAcobrar) {
+      return res.status(400).json({ status: 'ERROR', error: `Saldo insuficiente. Tiene S/ ${cliente.saldo}` });
+    }
+
+    await ClienteModel.actualizarSaldo(cliente.id, montoAcobrar, 'RESTA');
+    const maquina = await VentaModel.obtenerMaquinaPorId(sesionKiosco.maquina_id);
+    
+    await ejecutarActivacion(maquina, montoAcobrar, 'SALDO_PREPAGO');
+    
+    res.json({ status: 'OK', cliente: cliente.nombres, nuevo_saldo: parseFloat(cliente.saldo) - montoAcobrar });
+  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
+};
+
+// 2. Arranque Parcial (Inicia con lo insertado)
+exports.arranqueParcial = async (req, res) => {
+  try {
+    if (!sesionKiosco.maquina_id || sesionKiosco.saldo_acumulado <= 0) {
+      return res.status(400).json({ status: 'ERROR', error: 'No hay saldo acumulado para arrancar' });
+    }
+
+    const maquina = await VentaModel.obtenerMaquinaPorId(sesionKiosco.maquina_id);
+    const montoIngresado = sesionKiosco.saldo_acumulado;
+    
+    await ejecutarActivacion(maquina, montoIngresado, 'EFECTIVO_PARCIAL');
+    
+    res.json({ status: 'OK', mensaje: 'Arranque forzado con saldo parcial' });
+  } catch (error) { res.status(500).json({ status: 'ERROR', error: error.message }); }
 };

@@ -60,8 +60,14 @@
   <!-- PASO 2: QR Y PAGO -->
   <main id="paso-2" class="hidden flex-1 flex-col items-center justify-center max-w-md mx-auto w-full my-auto">
     <button onclick="cancelarSeleccion()" class="self-start text-slate-400 hover:text-white font-bold text-sm mb-4 flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl active:scale-95 transition">← Volver al Menú</button>
-    <div class="bg-slate-900/90 p-6 rounded-3xl w-full flex flex-col items-center border border-slate-800 shadow-2xl backdrop-blur">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Servicio Seleccionado</p>
+    <div class="bg-slate-900/90 p-6 rounded-3xl w-full flex flex-col items-center border border-slate-800 shadow-2xl backdrop-blur relative">
+      
+      <!-- BOTÓN CLIENTE PREPAGO -->
+      <button onclick="abrirModalDni()" class="absolute -top-4 right-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 text-white font-black px-4 py-2 rounded-xl text-xs shadow-lg transition flex items-center gap-2 border border-indigo-300">
+        💳 SOY CLIENTE
+      </button>
+
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Servicio Seleccionado</p>
       <h2 id="lbl-maquina" class="text-xl font-black text-cyan-400 mt-1"></h2>
       
       <div class="flex items-center gap-6 my-6 bg-slate-950 p-3 rounded-2xl border border-slate-800 w-full justify-between">
@@ -76,8 +82,16 @@
       <div class="bg-white p-3 rounded-2xl shadow-2xl my-1 border-4 border-cyan-500/30">
         <img src="/yape-qr.png" alt="QR Yape" class="w-40 h-40 sm:w-48 sm:h-48 object-contain">
       </div>
-      <div class="flex items-center gap-2 mt-4 text-amber-400 animate-pulse bg-amber-950/40 border border-amber-800/50 px-4 py-2 rounded-xl">
+      <div class="flex items-center gap-2 mt-4 text-amber-400 animate-pulse bg-amber-950/40 border border-amber-800/50 px-4 py-2 rounded-xl text-center">
         <span class="w-3 h-3 bg-amber-400 rounded-full"></span><p class="text-xs font-extrabold">Escanee y Yapee o inserte monedas...</p>
+      </div>
+
+      <!-- ALERTA DE PAGO INCOMPLETO (Arranque Parcial) -->
+      <div id="alerta-pago-incompleto" class="hidden w-full mt-4 bg-rose-950/80 border border-rose-800 p-4 rounded-xl text-center">
+        <p class="text-rose-400 text-sm font-bold mb-2">Ingresó S/ <span id="lbl-inc-ingresado"></span>. Faltan S/ <span id="lbl-inc-falta"></span></p>
+        <div class="flex gap-2">
+          <button onclick="forzarArranqueParcial()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-2 rounded-lg text-xs transition">INICIAR CON S/ <span id="lbl-inc-btn"></span></button>
+        </div>
       </div>
     </div>
     
@@ -95,6 +109,23 @@
       Siguiente Cliente (<span id="count-reset">15</span>s)
     </button>
   </main>
+
+  <!-- MODAL: DNI CLIENTE PREPAGO -->
+  <div id="modal-dni" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-indigo-500/50 p-6 rounded-3xl max-w-sm w-full shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-black text-indigo-400 flex items-center gap-2"><span>💳</span> Pago con Saldo</h3>
+        <button onclick="cerrarModalDni()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
+      <form onsubmit="ejecutarPagoDNI(event)" class="space-y-4" autocomplete="off">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ingrese su DNI</label>
+          <input type="number" id="form-dni" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-lg font-black text-indigo-300 focus:outline-none focus:border-indigo-500 transition text-center" placeholder="Ej. 70123456">
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-3 rounded-xl text-sm shadow-xl transition mt-2">Descontar S/ <span id="lbl-dni-monto"></span> y Activar</button>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL: GUÍA DE USO -->
   <div id="modal-ayuda" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -273,8 +304,10 @@
         if (data.status === 'PAGO_CONFIRMADO') {
           cerrarModalEmergencia(); 
           cerrarModalReporte();
+          cerrarModalDni();
           creditoPendiente = 0; 
           document.getElementById('banner-credito').classList.add('hidden');
+          document.getElementById('alerta-pago-incompleto').classList.add('hidden');
           
           const min = Math.floor(data.tiempo_seg / 60);
           const seg = data.tiempo_seg % 60;
@@ -304,7 +337,10 @@
 
         if (data.status === 'PAGO_INCOMPLETO') {
           creditoPendiente = data.saldo_actual;
-          mostrarToast(`⚠️ Incompleto: Ingresó S/ ${data.saldo_actual}.00. Aún faltan S/ ${data.monto_faltante}.00 para arrancar.`, 'alerta');
+          document.getElementById('lbl-inc-ingresado').innerText = data.saldo_actual.toFixed(2);
+          document.getElementById('lbl-inc-falta').innerText = data.monto_faltante.toFixed(2);
+          document.getElementById('lbl-inc-btn').innerText = data.saldo_actual.toFixed(2);
+          document.getElementById('alerta-pago-incompleto').classList.remove('hidden');
         }
       };
     }
@@ -351,6 +387,7 @@
       });
 
       document.getElementById('lbl-maquina').innerText = nombre;
+      document.getElementById('alerta-pago-incompleto').classList.add('hidden');
       actualizarVista(); 
       actualizarNavegacionPasos(2); 
       mostrarPaso(2);
@@ -403,8 +440,47 @@
       document.getElementById('lbl-tiempo').innerText = `Tiempo: ${(tiempoSeg / 60).toFixed(1)} min (${tiempoSeg} seg)`;
     }
 
+    // --- NUEVAS FUNCIONES DE CLIENTE PREPAGO ---
+    function abrirModalDni() {
+      document.getElementById('lbl-dni-monto').innerText = monto.toFixed(2);
+      document.getElementById('form-dni').value = '';
+      document.getElementById('modal-dni').classList.remove('hidden');
+      setTimeout(() => document.getElementById('form-dni').focus(), 100);
+    }
+    
+    function cerrarModalDni() { 
+      document.getElementById('modal-dni').classList.add('hidden'); 
+    }
+
+    async function ejecutarPagoDNI(e) {
+      e.preventDefault();
+      const dni = document.getElementById('form-dni').value;
+      try {
+        const res = await fetch('/api/lavado/pagar-saldo-cliente', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ dni }) 
+        });
+        const data = await res.json();
+        if (data.status === 'OK') {
+          mostrarToast(`¡Gracias ${data.cliente}! Saldo restante: S/ ${data.nuevo_saldo.toFixed(2)}`, 'exito');
+        } else {
+          mostrarToast(data.error, 'error');
+        }
+      } catch (err) { mostrarToast('Error de conexión con el servidor', 'error'); }
+    }
+
+    async function forzarArranqueParcial() {
+      try {
+        const res = await fetch('/api/lavado/arranque-parcial', { method: 'POST' });
+        const data = await res.json();
+        if (data.status !== 'OK') mostrarToast(data.error, 'error');
+      } catch (err) { mostrarToast('Error de conexión', 'error'); }
+    }
+
     function abrirModalAyuda() { document.getElementById('modal-ayuda').classList.remove('hidden'); }
     function cerrarModalAyuda() { document.getElementById('modal-ayuda').classList.add('hidden'); }
+    
     function abrirModalReporte() { 
       const btn = document.getElementById('btn-enviar-alerta');
       btn.innerHTML = `<span>🔔</span> NOTIFICAR AL DUEÑO`;
