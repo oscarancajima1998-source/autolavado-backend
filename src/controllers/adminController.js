@@ -1,7 +1,6 @@
 /**
  * CONTROLADOR: adminController
- * Maneja el Dashboard, Login, Reportes y Control Manual de Máquinas
- * Sincronizado con MaquinaModel y VentaModel
+ * Maneja el Dashboard, Login, Reportes, Control Manual y Emergencias
  */
 
 const jwt = require('jsonwebtoken');
@@ -17,7 +16,6 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Autenticación administrativa por defecto (puedes conectarla a BD luego)
     if ((email === 'admin@serviprof.com' || email === 'admin') && password === 'admin123') { 
       const token = jwt.sign(
         { id: 1, rol: 'ADMIN' }, 
@@ -38,7 +36,6 @@ exports.login = async (req, res) => {
 };
 
 exports.perfil = (req, res) => {
-  // Retorna los datos del token decodificado por el middleware
   res.json({ status: 'OK', usuario: req.usuario });
 };
 
@@ -47,14 +44,12 @@ exports.perfil = (req, res) => {
 // =======================================================
 exports.obtenerReportesEstacion = async (req, res) => {
   try {
-    const estacionId = 1; // Asumimos estación 1 por ahora
+    const estacionId = 1; 
     const { inicio, fin } = req.query;
 
-    // Validar que vengan las fechas, si no, usar la fecha de hoy
     const fechaInicio = inicio || new Date().toISOString().split('T')[0];
     const fechaFin = fin || new Date().toISOString().split('T')[0];
 
-    // Llama a la función del modelo de ventas que maneja los filtros de fecha
     const reporteAvanzado = await VentaModel.obtenerReporteAvanzado(estacionId, fechaInicio, fechaFin);
     
     res.json({ status: 'OK', data: reporteAvanzado });
@@ -98,7 +93,7 @@ exports.crearMaquina = async (req, res) => {
     }
 
     const payload = {
-      estacion_id: 1, // Por defecto estación 1
+      estacion_id: 1, 
       nombre,
       segundos_por_sol: parseInt(segundos_por_sol),
       pin_hardware: parseInt(pin_hardware)
@@ -153,7 +148,7 @@ exports.restaurarMaquina = async (req, res) => {
 };
 
 // =======================================================
-// 4. CONTROL MANUAL Y MQTT
+// 4. CONTROL MANUAL, MQTT Y EMERGENCIAS
 // =======================================================
 exports.activarManual = async (req, res) => {
   try {
@@ -163,14 +158,11 @@ exports.activarManual = async (req, res) => {
       return res.status(400).json({ status: 'ERROR', error: 'Monto y máquina son obligatorios' });
     }
 
-    // 1. Obtenemos la info del hardware de la BD
     const maquina = await VentaModel.obtenerMaquinaPorId(maquina_id);
     if (!maquina) return res.status(404).json({ status: 'ERROR', error: 'Máquina no encontrada o inactiva' });
 
-    // 2. Calculamos los segundos
     const tiempo_otorgado_seg = Math.round((monto / 1.00) * maquina.segundos_por_sol);
     
-    // 3. Registrar la venta en la base de datos como "MANUAL"
     await VentaModel.crearVenta({ 
       estacion_id: maquina.estacion_id, 
       maquina_id: maquina.id, 
@@ -179,7 +171,6 @@ exports.activarManual = async (req, res) => {
       tiempo_otorgado_seg 
     });
 
-    // 4. Enviar orden de ENCENDIDO al ESP32 por MQTT
     const payload = JSON.stringify({ 
       maquina_id: maquina.id, 
       nombre_maquina: maquina.nombre, 
@@ -191,7 +182,6 @@ exports.activarManual = async (req, res) => {
       if (err) console.error('Error enviando mensaje MQTT:', err);
     });
 
-    // 5. Iniciar reloj de cuenta regresiva en el Dashboard via SSE
     lavadoController.iniciarTemporizador(maquina.id, tiempo_otorgado_seg); 
     
     res.json({ status: 'OK', mensaje: 'Máquina activada exitosamente' });
@@ -212,7 +202,6 @@ exports.detenerManual = async (req, res) => {
     const maquina = await VentaModel.obtenerMaquinaPorId(maquina_id);
     if (!maquina) return res.status(404).json({ status: 'ERROR', error: 'Máquina no encontrada' });
 
-    // 1. Enviar tiempo "0" al ESP32 para forzar el APAGADO
     const payload = JSON.stringify({ 
       maquina_id: maquina.id, 
       nombre_maquina: maquina.nombre, 
@@ -224,12 +213,47 @@ exports.detenerManual = async (req, res) => {
       if (err) console.error('Error enviando parada por MQTT:', err);
     });
 
-    // 2. Detener temporizador en la memoria del servidor (SSE)
     lavadoController.detenerTemporizador(maquina.id);
     
     res.json({ status: 'OK', mensaje: 'Máquina detenida forzosamente' });
   } catch (error) { 
     console.error('Error al detener máquina:', error);
     res.status(500).json({ status: 'ERROR', error: 'Fallo al detener la máquina' }); 
+  }
+};
+
+// NUEVA FUNCIÓN: Activación rápida / de cortesía desde el Kiosco
+exports.activacionEmergenciaKiosco = async (req, res) => {
+  try {
+    const { maquina_id, password } = req.body;
+
+    // Validación de seguridad (Contraseña por defecto: 123456)
+    if (password !== (process.env.PASS_EMERGENCIA || '123456')) {
+      return res.status(403).json({ status: 'ERROR', error: 'Contraseña de administrador incorrecta' });
+    }
+
+    const maquina = await VentaModel.obtenerMaquinaPorId(maquina_id);
+    if (!maquina) return res.status(404).json({ status: 'ERROR', error: 'Máquina inválida' });
+
+    // Tiempo fijo por cortesía/emergencia (Ej: 180 segundos)
+    const tiempo_cortesia = 180;
+
+    const payload = JSON.stringify({ 
+      maquina_id: maquina.id, 
+      nombre_maquina: maquina.nombre, 
+      tiempo_seg: tiempo_cortesia, 
+      pin_hardware: maquina.pin_hardware 
+    });
+    
+    mqttClient.publish('autolavado/estacion/1/activar', payload, (err) => {
+      if (err) console.error('Error enviando mensaje MQTT de emergencia:', err);
+    });
+
+    lavadoController.iniciarTemporizador(maquina.id, tiempo_cortesia); 
+    
+    res.json({ status: 'OK', mensaje: 'Activación de emergencia procesada' });
+  } catch (error) {
+    console.error('Error en activación de emergencia:', error);
+    res.status(500).json({ status: 'ERROR', error: 'Error al procesar la emergencia' });
   }
 };

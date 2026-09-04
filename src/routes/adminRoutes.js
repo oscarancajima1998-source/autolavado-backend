@@ -16,13 +16,13 @@ router.get('/maquinas-inactivas/estacion/:estacionId', verificarToken, adminCont
 router.post('/maquinas', verificarToken, adminController.crearMaquina);
 router.put('/maquinas/:id', verificarToken, adminController.actualizarMaquina);
 router.put('/maquinas/restaurar/:id', verificarToken, adminController.restaurarMaquina);
-router.delete('/maquinas/:id', verificarToken, adminController.eliminarMaquina);
+router.delete('/maquinas/:id', verificarToken, adminController.ocultarMaquina);
 
 router.post('/maquinas/activar-manual', verificarToken, adminController.activarManual);
 router.post('/maquinas/detener-manual', verificarToken, adminController.detenerManual);
-router.get('/reportes/estacion/:estacionId', verificarToken, adminController.obtenerReporteFechas);
+router.get('/reportes/estacion/:estacionId', verificarToken, adminController.obtenerReportesEstacion);
 
-// NUEVA RUTA: Activación rápida desde el Kiosco (valida contraseña en el backend)
+// RUTA ACTIVADA: Activación de emergencia desde el Kiosco
 router.post('/activacion-emergencia', adminController.activacionEmergenciaKiosco);
 
 module.exports = router;
