@@ -15,7 +15,6 @@
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between p-4 sm:p-6 overflow-x-hidden">
   
-  <!-- AQUI SE CORRIGIO EL z-[100] PARA QUE LAS ALERTAS ESTÉN POR ENCIMA DE TODO -->
   <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2"></div>
 
   <!-- ENCABEZADO -->
@@ -213,7 +212,6 @@
       toast.innerHTML = `<div class="font-bold text-lg">${tipo === 'exito' ? '✓' : tipo === 'alerta' ? '⚠️' : '✕'}</div><div class="text-sm font-medium pr-4">${mensaje}</div>`;
       container.appendChild(toast);
       
-      // Tiempo ampliado a 6 segundos para que el cliente lea el mensaje de error completo
       setTimeout(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-exit');
@@ -468,19 +466,15 @@
           body: JSON.stringify({ dni }) 
         });
 
-        // Convertimos a JSON sin importar si el HTTP Status es 400
         const data = await res.json();
         
-        // CORRECCIÓN: Si el servidor devuelve error, CERRAMOS el modal para ver el Toast
         if (!res.ok || data.status === 'ERROR') {
           dniInput.value = ''; 
-          cerrarModalDni(); // Ocultamos el modal que estorba
-          // Mostramos la alerta. Si el backend no da texto, ponemos el que pediste
+          cerrarModalDni(); 
           mostrarToast(data.error || 'TU SALDO ES INSUFICIENTE. CONTÁCTATE CON EL ADMINISTRADOR Y RECARGA.', 'error');
           return; 
         }
 
-        // Si es exitoso
         dniInput.value = '';
         cerrarModalDni();
         mostrarToast(`¡Gracias ${data.cliente}! Saldo restante: S/ ${data.nuevo_saldo.toFixed(2)}`, 'exito');
@@ -542,10 +536,13 @@
 
     function cerrarModalEmergencia() { document.getElementById('modal-emergencia').classList.add('hidden'); }
 
+    // --- CORRECCIÓN EN EJECUTAR EMERGENCIA ---
     async function ejecutarEmergencia(e) {
       e.preventDefault();
-      const pass = document.getElementById('form-em-pass').value;
+      const passInput = document.getElementById('form-em-pass');
+      const pass = passInput.value;
       const montoPagado = document.getElementById('form-em-monto').value;
+      
       try {
         const res = await fetch('/api/admin/activacion-emergencia', {
           method: 'POST', 
@@ -553,7 +550,27 @@
           body: JSON.stringify({ password: pass, maquina_id: maquina.id, monto: Number(montoPagado) })
         });
         const data = await res.json();
-        if (data.status !== 'OK') mostrarToast(data.error, 'error');
+        
+        if (data.status !== 'OK') {
+          passInput.value = ''; // Limpiamos por seguridad
+          mostrarToast(data.error || 'Contraseña incorrecta', 'error');
+        } else {
+          // ÉXITO: Limpiamos input y cerramos ventana
+          passInput.value = '';
+          cerrarModalEmergencia();
+          mostrarToast('¡Activación de emergencia exitosa!', 'exito');
+
+          // Avanzamos manualmente a la pantalla 3 (Éxito)
+          document.getElementById('titulo-exito').innerText = '¡ACTIVACIÓN FORZADA!';
+          document.getElementById('lbl-exito').innerHTML = `
+            <div class="text-slate-300 text-sm mb-1">Máquina: <span class="text-cyan-400 font-bold text-base">${maquina.nombre || 'Seleccionada'}</span></div>
+            <div class="bg-amber-950/60 border border-amber-800 text-amber-300 font-bold py-2 px-4 rounded-xl text-sm mt-3">Activación por Administrador</div>
+          `;
+          
+          actualizarNavegacionPasos(3); 
+          mostrarPaso(3); 
+          iniciarConteoRegresivo();
+        }
       } catch (err) { 
         mostrarToast('Error de conexión', 'error'); 
       }
